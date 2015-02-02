@@ -1,0 +1,223 @@
+#!/bin/bash
+
+### Automate cloning of local Git repository stored as a dedicated ZFS dataset.
+### This supports creation of the clone mounted into a specified absolute path
+### or into a relative path near the original repo. The user must have proper
+### "zfs allow" delegated permissions for source and target datasets, list of
+### specific required and/or useful permissions is suggested in the code below.
+### The new dataset is created (subject to "zfs allow" permissions as well as
+### POSIX permissions to create the mountpoint) under the hierarchy node which
+### would contain its new mountpoint.
+### Currently this clones only one dataset (non-recursive).
+### After the initial cloning, the new repo is adjusted to reference its local
+### filesystem parent as the default 'origin' (any initial 'origin' is renamed
+### into 'origin-parent'), and if NetBeans workspace metadata is found - then
+### the NB Project instance is renamed according to new dataset base-name.
+### Parameters specify the filesystem paths, just like ordinary "git clone" for
+### local filesystem source and destination.
+### Note that ZFS-based repository cloning also refers the non-repo cruft in
+### the workspace, such as build products if in-tree builds were executed here.
+### Copyright (C) 2015 by Jim Klimov, License: MIT
+
+PATH=/usr/gnu/bin:/usr/sfw/bin:/opt/sfw/bin:/opt/omniti/bin:/bin:\
+/sbin:/usr/sbin:$PATH
+LANG=C
+LC_ALL=C
+export PATH LANG LC_ALL
+
+# Verify that we have a usable ZFS command
+zfs --help 2>&1 | egrep -i 'dataset|snapshot|clone|volume' >/dev/null || \
+	{ echo "FATAL: No suitable 'zfs' command found!" >&2 && exit 2; }
+
+# Currently we accept strictly two CLI parameters: FROM and DEST
+[ $# != 2 -o -z "$1" -o -z "$2" ] && \
+	echo "Required: FROM and DEST replica paths" >&2 && \
+	echo " FROM must be a Git repo in a dedicated ZFS dataset, and" >&2 && \
+	echo " DEST must not block ZFS mount (may be an empty directory)" >&2 && \
+	exit 1
+
+FROM="$1"
+DEST="$2"
+
+# Verify that "DEST" is an empty directory or does not exist
+BAD=no
+if [ -e "$DEST" ]; then
+	BAD=yes
+	[ -d "$DEST" ] && \
+		( cd "$DEST" && [ x"`find . 2>/dev/null`" = x. ] ) && \
+		BAD=no
+fi
+[ x"$BAD" = xyes ] && \
+	echo "Required: DEST must not exist as a non-empty directory" >&2 && \
+	exit 1
+
+# Other sanity checks
+[ -z "$FROM" -o ! -d "$FROM" ] && \
+	echo "Required: FROM must exist as a directory" >&2 && exit 1
+FROMPATH="`cd "$FROM" && pwd`" || FROMPATH=""
+[ -z "$FROMPATH" ] && \
+	echo "Required: FROM must exist as a directory" >&2 && exit 1
+[ ! -d "$FROM/.git" ] && \
+	echo "Required: FROM must be a Git repository" >&2 && exit 1
+[ ! -d "$FROM/.zfs/snapshot" ] && \
+	echo "Required: FROM must be a ZFS POSIX dataset" >&2 && exit 1
+
+FROMDS="`cd "$FROMPATH" && df -k . | grep / | head -1 | awk '{print $1}'`" || \
+	FROMDS=""
+[ -z "$FROMDS" ] && \
+	echo "Required: FROM must be a mounted ZFS POSIX dataset" >&2 && exit 1
+
+# TODO: Maybe fallback to some other timestamp if this fails?
+# Perhaps a current latest git commit of the original repo?
+# Either way, some tag is needed to create the snapshot and then the clone.
+TS="`date -u '+%Y%m%dT%H%M%SZ'`" || TS=""
+[ -z "$TS" ] && \
+	echo "FATAL: Can't determine current timestamp" >&2 && exit 1
+
+# Validate both ZFS command and FROM dataset name
+echo "=== FROM dataset:"
+zfs list -o \
+	mountpoint,space,refer,lrefer,dedup,compression,compressratio,sharenfs,sharesmb \
+	"$FROMDS"
+[ $? != 0 ] && \
+	echo "FATAL: Couldn't use ZFS to review dataset properties" >&2 && \
+	exit 1
+
+[ -d "$DEST" ] || mkdir -p "$DEST"
+[ $? != 0 ] && \
+	echo "FATAL: Couldn't create the paths up to DEST" >&2 && exit 1
+DESTPATH="`cd "$DEST" && pwd`" || DESTPATH=""
+[ -z "$DESTPATH" ] && \
+	echo "FATAL: Couldn't change the path into DEST" >&2 && exit 1
+
+DESTDS=""
+DESTMPT=""
+if [ -d "$DESTPATH/.zfs/snapshot" ]; then
+	DESTDS="`cd "$DESTPATH" && df -k . | grep / | head -1 | awk '{print $1}'`" || \
+	DESTDS=""
+fi
+
+if [ -z "$DESTDS" -a -d "$DESTPATH/../.zfs/snapshot" ]; then
+	DESTDS="`cd "$DESTPATH/.." && df -k . | grep / | head -1 | awk '{print $1}'`"/"`basename "$DESTPATH"`" || \
+	DESTDS=""
+
+	[ x"`basename "$DESTPATH"`" != x"`basename "$DEST"`" ] && \
+		DESTMPT="$DESTPATH"
+fi
+
+if [ -z "$DESTDS" ]; then
+	DESTDS="`dirname "$FROMDS"`/`basename "$DESTPATH"`"
+	[ x"`dirname "$FROMPATH"`/`basename "$DEST"`" != x"$DESTPATH" ] && \
+		DESTMPT="$DESTPATH"
+fi
+
+# Validate both ZFS command and DEST dataset name
+zfs list -o name "$DESTDS" >/dev/null 2>&1 && \
+echo "FATAL: DEST ZFS dataset $DESTDS already exists?" >&2 && exit 2
+
+echo "=== Cloning from '$FROMDS@git-auto-snap-clone-$TS'" \
+	"to '$DESTDS' (mountpoint=$DESTMPT)..."
+
+zfs snapshot -r "$FROMDS@git-auto-snap-clone-$TS" || \
+{ RES=$?; echo "FATAL: Could not snapshot the dataset" \
+	"'$FROMDS@git-auto-snap-clone-$TS'" >&2; exit $RES; }
+
+zfs clone -p -o mountpoint=none \
+	"$FROMDS@git-auto-snap-clone-$TS" "$DESTDS" || \
+{ RES=$?
+  echo "FATAL: Could not clone the dataset"
+  echo "  from '$FROMDS@git-auto-snap-clone-$TS'"
+  echo "  to '$DESTDS'"
+  echo "Please make sure that dataset name is valid and that proper 'zfs allow'"
+  echo "permissions were set on destination container dataset, e.g. at least:"
+  echo "  sudo zfs allow -ldu $USER clone,create,destroy,diff,mount,promote,rollback,snapshot,share,sharenfs,sharesmb,canmount,mountpoint `dirname $DESTDS`"
+  echo "Maybe also allow: send,receive,dedup,compression,hold,release ..."
+  echo "::: Current set of destination container permissions is:"
+  zfs allow "`dirname $DESTDS`"
+  echo ""
+  echo "::: Current set of original repository dataset permissions is:"
+  zfs allow "$FROMDS"
+  echo ""
+  echo "FATAL: Dataset cloning FAILED"
+  exit $RES; } >&2
+
+RES=0
+if [ -n "$DESTMPT" ]; then
+	zfs set mountpoint="$DESTMPT" "$DESTDS" || RES=$?
+else
+	zfs inherit mountpoint "$DESTDS" || RES=$?
+fi
+[ $RES != 0 ] && \
+	echo "FATAL: Could not set '$DESTDS' mountpoint='$DESTMPT'" >&2 && \
+	exit $RES
+
+echo "=== Trying to carry over some properties of the source dataset..."
+EXCLUDE_ATTRS='canmount|mountpoint'
+zfs get all "$FROMDS" | egrep ' (local|received)$' | \
+	egrep -v "$EXCLUDE_ATTRS" | while read _D A V _T; do \
+		echo "$A=$V"; zfs set "$A=$V" "$DESTDS"; \
+	done
+# TODO: zfs allow permissions if set directly on FROMDS?
+# TODO: zfs smb share ACL files?
+# TODO: sub-datasets?
+
+echo "=== DEST dataset stats:"
+zfs list -o \
+	mountpoint,space,refer,lrefer,dedup,compression,compressratio,sharenfs,sharesmb \
+	"$DESTDS"
+[ $? != 0 ] && \
+	echo "FATAL: Couldn't use ZFS to review dataset properties" >&2 && \
+	exit 1
+
+echo ""
+echo "=== Review ZFS ALLOW settings:"
+echo "===== FROM $FROMDS:"
+zfs allow "$FROMDS"
+echo ""
+echo "===== DEST $DESTDS:"
+zfs allow "$DESTDS"
+
+echo ""
+echo "=== Rewriting Git 'origin' of the new repo for automated sync with the parent"
+echo "    (in local filesystem); retaining the original 'origin' as 'origin-parent'"
+ORIGIN="$FROMPATH"
+[ x"`dirname "$FROMPATH"`" = x"`dirname "$DESTPATH"`" ] && \
+	ORIGIN="../`basename "$FROMPATH"`"
+( cd "$DESTPATH" && {
+  git remote rm origin-parent || echo "OK_TO_FAIL"
+  git remote rename origin origin-parent || echo "OK_TO_FAIL"
+  git remote add origin "$ORIGIN"; } ) || \
+{ RES=$?; echo "FATAL: Could not set Git origin URL"; exit $RES; } >&2
+### This was fatal because maybe "git" or "cd" failed, or something?
+
+echo ""
+echo "=== Rewriting Git branch tracking for the current branch of the new repo"
+echo "    for automated sync with the parent one"
+( cd "$DESTPATH" && {
+  BRANCH="`git rev-parse --abbrev-ref HEAD`" || BRANCH=""
+  # NOTE: '--set-upstream-to' May be unsupported in Git-1.x
+  [ -z "$BRANCH" ] || \
+    git branch --set-upstream-to=origin/"$BRANCH" "$BRANCH" 2>/dev/null || \
+    git branch --set-upstream origin/"$BRANCH"; } ) || \
+{ RES=$?; echo "WARN: Could not modify Git branch tracker"; } >&2
+
+if [ -d "$DESTPATH/nbproject" -a -s "$DESTPATH/nbproject/project.xml" ]; then
+    echo ""
+    echo "=== Rewriting NetBeans project name..."
+    ( cd "$DESTPATH/nbproject" && \
+      cp -pf project.xml project.xml.orig && \
+      sed 's|<name>'"`basename "$FROMPATH"`"'</name>|<name>'"`basename "$DESTPATH"`"'</name>|' \
+      < project.xml.orig > project.xml ) || \
+    { RES=$?; echo "WARN: Could not modify NetBeans project name"; } >&2
+fi
+
+echo ""
+echo "=== SUCCESS: git zclone '$FROM' '$DEST':" \
+	"created '$DESTDS' mounted to '$DESTPATH'" \
+	"and changed git origin to '$ORIGIN'"
+if [ "$RES" != 0 ]; then
+	echo "=== WARN: Some non-fatal failures were detected" \
+		"and reported above" >&2
+fi
+
+exit $RES

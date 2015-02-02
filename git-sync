@@ -1,0 +1,24 @@
+#!/bin/sh
+
+### This Git method script pushes all new commits from the current repository
+### to all of its configured remotes (except 'upstream' which is considered a
+### read-only common code repository). Usually this updates 'origin' and maybe
+### some other local cloned repositories, if referenced.
+### Then this pulls any updates from remotes, ensuring that this workspace
+### has been replicated to remotes first, and then gets any refreshers from
+### the remote repositories, and so the local sources are most up-to-date.
+### Copyright (C) 2014-2015 by Jim Klimov, License: MIT
+
+echo "=== Syncing from repo `pwd` branch `git branch` ..."
+for R in "" \
+	`git remote -v | egrep 'push' | awk '{print $1}' | grep -v upstream` \
+; do
+	echo "=== Pushing 'all' to repo '$R' ..."
+	git push --all $R
+	echo "=== Pushing 'tags' to repo '$R' ..."
+	git push --tags $R
+done
+
+echo "=== Pulling fast-forward from remotes ..."
+git pull-ff
+

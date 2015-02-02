@@ -1,0 +1,56 @@
+#!/bin/bash
+
+### This Git method script pulls all new commits, branches and tags from all
+### known remote sources, and attempts fast-forward merges of the current
+### workspace with its more up-to-date remote counterparts.
+### Script Copyright (C) 2014-2015 by Jim Klimov, License: MIT
+### Pieces probably inspired by various posts from Stack Overflow
+
+git_pull-ff() {
+
+currentbranchref="$(git symbolic-ref HEAD 2>&-)"
+currentbranch="`git branch | grep '^* ' | sed 's,^* ,,'`" || \
+	currentbranch=""
+
+#git pull $currentbranch
+#git pull --tags $currentbranch
+git pull --all
+git fetch --tags
+
+git branch -r | grep -v ' -> ' | while read remotebranch
+do
+    # Split <remote>/<branch> into remote and branchref parts
+    remote="${remotebranch%%/*}"
+    branchref="refs/heads/${remotebranch#*/}"
+
+    if [ "$branchref" == "$currentbranchref" ]
+    then
+        echo "Updating current branch $branchref from $remote..."
+        git pull --ff-only
+    else
+        echo "Updating non-current ref $branchref from $remote..."
+        git fetch "$remote" "$branchref:$branchref"
+    fi
+done
+
+git checkout master && \
+git pull --ff-only --all
+#git pull --ff-only master && \
+#git pull --ff-only --all
+
+[ x"$currentbranch" != x -a "$currentbranch" != master ] && \
+    git checkout $currentbranch && \
+    git pull --ff-only --all
+#    git pull --ff-only $currentbranch && \
+#    git pull --ff-only --all
+
+echo "DONE!"
+[ x"$currentbranch" != x ] && \
+    echo "Started from branch '$currentbranch'... still there?"
+git branch
+
+git pull
+}
+
+git_pull-ff
+
