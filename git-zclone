@@ -18,7 +18,7 @@
 ### local filesystem source and destination.
 ### Note that ZFS-based repository cloning also refers the non-repo cruft in
 ### the workspace, such as build products if in-tree builds were executed here.
-### Copyright (C) 2013-2015 by Jim Klimov, License: MIT
+### Copyright (C) 2013-2015 by Jim Klimov <jim@jimklimov.com>, License: MIT
 
 PATH=/usr/gnu/bin:/usr/sfw/bin:/opt/sfw/bin:/opt/omniti/bin:/bin:\
 /sbin:/usr/sbin:$PATH
@@ -291,7 +291,7 @@ echo ""
 echo "=== SUCCESS: git zclone '$FROM' '$DEST':" \
 	"created '$DESTDS' mounted to '$DESTPATH'"
 [ "$FROM_TYPE" = LOCAL ] && \
-	"and changed git origin to '$ORIGIN'"
+	echo "and changed git origin to '$ORIGIN'"
 if [ "$RES" != 0 ]; then
 	echo "=== WARN: Some non-fatal failures were detected" \
 		"and reported above" >&2
