@@ -18,7 +18,9 @@
 ### local filesystem source and destination.
 ### Note that ZFS-based repository cloning also refers the non-repo cruft in
 ### the workspace, such as build products if in-tree builds were executed here.
+###
 ### Copyright (C) 2013-2015 by Jim Klimov <jim@jimklimov.com>, License: MIT
+###     https://github.com/jimklimov/git-scripts
 
 PATH=/usr/gnu/bin:/usr/sfw/bin:/opt/sfw/bin:/opt/omniti/bin:/bin:\
 /sbin:/usr/sbin:$PATH
@@ -274,7 +276,7 @@ echo "    for automated sync with the parent one"
   # NOTE: '--set-upstream-to' May be unsupported in Git-1.x
   [ -z "$BRANCH" ] || \
     git branch --set-upstream-to=origin/"$BRANCH" "$BRANCH" 2>/dev/null || \
-    git branch --set-upstream origin/"$BRANCH"; } ) || \
+    git branch --set-upstream "$BRANCH" origin/"$BRANCH"; } ) || \
 { RES=$?; echo "WARN: Could not modify Git branch tracker"; } >&2
 
 if [ -d "$DESTPATH/nbproject" -a -s "$DESTPATH/nbproject/project.xml" ]; then
