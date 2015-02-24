@@ -18,6 +18,11 @@
 ### local filesystem source and destination.
 ### Note that ZFS-based repository cloning also refers the non-repo cruft in
 ### the workspace, such as build products if in-tree builds were executed here.
+### However, you can use the file:/// URL scheme to name the source, to clone
+### an original local git repository into a dedicated dataset using regular
+### "git clone" under the hood, after which you have a dedicated dataset with
+### just the fresh repository.
+### Also note that this did not yet intend to support cloning of bare repos.
 ###
 ### Copyright (C) 2013-2015 by Jim Klimov <jim@jimklimov.com>, License: MIT
 ###     https://github.com/jimklimov/git-scripts
@@ -32,8 +37,8 @@ export PATH LANG LC_ALL
 zfs --help 2>&1 | egrep -i 'dataset|snapshot|clone|volume' >/dev/null || \
 	{ echo "FATAL: No suitable 'zfs' command found!" >&2 && exit 2; }
 
-# Currently we accept strictly two CLI parameters: FROM and DEST
-[ $# != 2 -o -z "$1" -o -z "$2" ] && \
+# Currently we accept at least two CLI parameters: FROM and DEST
+[ $# -lt 2 -o -z "$1" -o -z "$2" ] && \
 	echo "Required: FROM and DEST replica paths" >&2 && \
 	echo " FROM must be a Git repo in a dedicated ZFS dataset, and" >&2 && \
 	echo " DEST must not block ZFS mount (may be an empty directory)" >&2 && \
@@ -41,6 +46,22 @@ zfs --help 2>&1 | egrep -i 'dataset|snapshot|clone|volume' >/dev/null || \
 
 FROM="$1"
 DEST="$2"
+
+### Remove the original CLI parameters such as FROM and DEST
+shift 2
+
+### Process optional further CLI parameters
+CHECKOUT_BRANCH=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -b|--branch)
+            CHECKOUT_BRANCH="$2"
+            shift ;;
+        *) echo "WARN: git-zclone currently does not support parameter '$1'" >&2
+            ;;
+    esac
+    shift
+done
 
 # Verify that "DEST" is an empty directory or does not exist
 BAD=no
@@ -256,7 +277,9 @@ case "$FROM_TYPE" in
 	( cd "$DESTPATH" && {
 	  git remote rm origin-parent || echo "OK_TO_FAIL"
 	  git remote rename origin origin-parent || echo "OK_TO_FAIL"
-	  git remote add origin "$ORIGIN"; } ) || \
+	  git remote add origin "$ORIGIN" && \
+            echo "===== Refresh Git tracking of origin..." && \
+            git pull --all; } ) || \
 	{ RES=$?; echo "FATAL: Could not set Git origin URL"; exit $RES; } >&2
 	### This was fatal because maybe "git" or "cd" failed, or something?
 	;;
@@ -267,6 +290,15 @@ case "$FROM_TYPE" in
 	  exit $RES; } >&2
 	;;
 esac
+
+if [ -n "$CHECKOUT_BRANCH" ]; then
+    echo ""
+    echo "=== Checking out Git branch '$CHECKOUT_BRANCH' in the new repo"
+
+    ( cd "$DESTPATH" && \
+      git checkout "$CHECKOUT_BRANCH" ) || \
+    { RES=$?; echo "WARN: Could not change Git branch"; } >&2
+fi
 
 echo ""
 echo "=== Rewriting Git branch tracking for the current branch of the new repo"
