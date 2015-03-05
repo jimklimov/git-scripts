@@ -38,42 +38,15 @@ zfs --help 2>&1 | egrep -i 'dataset|snapshot|clone|volume' >/dev/null || \
 	{ echo "FATAL: No suitable 'zfs' command found!" >&2 && exit 2; }
 
 # Currently we accept at least two CLI parameters: FROM and DEST
-[ $# -lt 2 -o -z "$1" -o -z "$2" ] && \
-	echo "Required: FROM and DEST replica paths" >&2 && \
-	echo " FROM must be a Git repo in a dedicated ZFS dataset, and" >&2 && \
-	echo " DEST must not block ZFS mount (may be an empty directory)" >&2 && \
-	exit 1
+#[ $# -lt 2 -o -z "$1" -o -z "$2" ] && \
+#	echo "Required: FROM and DEST replica paths" >&2 && \
+#	echo " FROM must be a Git repo in a dedicated ZFS dataset, and" >&2 && \
+#	echo " DEST must not block ZFS mount (may be an empty directory)" >&2 && \
+#	exit 1
 
 FROM="$1"
-DEST="$2"
-
 ### Remove the original CLI parameters such as FROM and DEST
-shift 2
-
-### Process optional further CLI parameters
-CHECKOUT_BRANCH=""
-while [ $# -gt 0 ]; do
-    case "$1" in
-        -b|--branch)
-            CHECKOUT_BRANCH="$2"
-            shift ;;
-        *) echo "WARN: git-zclone currently does not support parameter '$1'" >&2
-            ;;
-    esac
-    shift
-done
-
-# Verify that "DEST" is an empty directory or does not exist
-BAD=no
-if [ -e "$DEST" ]; then
-	BAD=yes
-	[ -d "$DEST" ] && \
-		( cd "$DEST" && [ x"`find . 2>/dev/null | grep -v ./.zfs`" = x. ] ) && \
-		BAD=no
-fi
-[ x"$BAD" = xyes ] && \
-	echo "Required: DEST must not exist as a non-empty directory" >&2 && \
-	exit 1
+shift
 
 case "$FROM" in
 	*://*|*@*:*)
@@ -113,6 +86,44 @@ case "$FROM" in
 	;;
 esac
 
+### If we have another parameter, snatch it as the destination
+DEST=""
+[ $# -gt 0 ] && \
+    DEST="$1" && \
+    shift
+
+if [ -z "$DEST" ]; then
+    echo "WARN: No explicit DEST was provided, so assigning one as a basename of FROM" >&2
+    echo "      Note that this may fail due to conflicts a bit later..." >&2
+    DEST="`basename "$FROM" .git`"
+fi
+
+# Verify that "DEST" is an empty directory or does not exist
+BAD=no
+if [ -n "$DEST" ] && [ -e "$DEST" ]; then
+	BAD=yes
+	[ -d "$DEST" ] && \
+		( cd "$DEST" && [ x"`find . 2>/dev/null | grep -v ./.zfs`" = x. ] ) && \
+		BAD=no
+fi
+[ x"$BAD" = xyes ] && \
+	echo "Required: DEST must not exist as a non-empty directory" >&2 && \
+	exit 1
+
+### Process optional further CLI parameters
+CHECKOUT_BRANCH=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -b|--branch)
+            CHECKOUT_BRANCH="$2"
+            shift ;;
+        *) echo "WARN: git-zclone currently does not support parameter '$1'" >&2
+            ;;
+    esac
+    shift
+done
+
+#################################################################################
 # TODO: Maybe fallback to some other timestamp if this fails?
 # Perhaps a current latest git commit of the original repo?
 # Either way, some tag is needed to create the (LOCAL) snapshot
