@@ -168,7 +168,7 @@ if [ -z "$DESTDS" ]; then
 	    case "$DESTDS" in
 		/*|*:*|swap|"")	# Local non-ZFS path or an NFS mount
 		    echo "FATAL: The container backing store DESTDS='$DESTDS' does not seem like a local ZFS dataset!" >&2
-		    echo "Try:   git clone '$1' '$2'" >&2
+		    echo "Try:   git clone '$FROM' '$DEST'" >&2
 		    exit 1
 		    ;;
 	    esac
@@ -284,9 +284,9 @@ case "$FROM_TYPE" in
 	### This was fatal because maybe "git" or "cd" failed, or something?
 	;;
     URL)
-	cd "$DESTPATH" && git clone "$1" . || \
+	cd "$DESTPATH" && git clone "$FROM" . || \
 	{ RES=$?
-	  echo "FATAL: Could not clone remote Git repo '$1' to local dataset '$DESTDS' mounted at '$DESTPATH'"
+	  echo "FATAL: Could not clone remote Git repo '$FROM' to local dataset '$DESTDS' mounted at '$DESTPATH'"
 	  exit $RES; } >&2
 	;;
 esac
