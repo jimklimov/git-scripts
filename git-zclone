@@ -112,9 +112,16 @@ fi
 
 ### Process optional further CLI parameters
 CHECKOUT_BRANCH=""
+CREATE_BRANCH_FLAG=""
 while [ $# -gt 0 ]; do
     case "$1" in
         -b|--branch)
+            CHECKOUT_BRANCH="$2"
+            shift ;;
+        -B|--new-branch)
+            ### Note: if the named branch exists, it is just checked out and no
+            ### error propagates into the exit-code (that we couldn't create it)
+            CREATE_BRANCH_FLAG="-b"
             CHECKOUT_BRANCH="$2"
             shift ;;
         *) echo "WARN: git-zclone currently does not support parameter '$1'" >&2
@@ -304,9 +311,13 @@ esac
 
 if [ -n "$CHECKOUT_BRANCH" ]; then
     echo ""
-    echo "=== Checking out Git branch '$CHECKOUT_BRANCH' in the new repo"
+    [ -z "$CREATE_BRANCH_FLAG" ] && \
+        echo "=== Checking out Git branch '$CHECKOUT_BRANCH' in the new repo" || \
+        echo "=== Creating and checking out Git branch '$CHECKOUT_BRANCH' in the new repo"
 
     ( cd "$DESTPATH" && \
+      { [ -z "$CREATE_BRANCH_FLAG" ] || \
+          git checkout $CREATE_BRANCH_FLAG "$CHECKOUT_BRANCH"; } || \
       git checkout "$CHECKOUT_BRANCH" ) || \
     { RES=$?; echo "WARN: Could not change Git branch"; } >&2
 fi
@@ -320,7 +331,8 @@ echo "    for automated sync with the parent one"
   [ -z "$BRANCH" ] || \
     git branch --set-upstream-to=origin/"$BRANCH" "$BRANCH" 2>/dev/null || \
     git branch --set-upstream "$BRANCH" origin/"$BRANCH"; } ) || \
-{ RES=$?; echo "WARN: Could not modify Git branch tracker"; } >&2
+{ RES_T=$?; echo "WARN: Could not modify Git branch tracker"
+  [ -n "$CREATE_BRANCH_FLAG" ] && echo "OK_TO_FAIL" || RES=$RES_T; } >&2
 
 if [ -d "$DESTPATH/nbproject" -a -s "$DESTPATH/nbproject/project.xml" ]; then
     echo ""
@@ -331,6 +343,13 @@ if [ -d "$DESTPATH/nbproject" -a -s "$DESTPATH/nbproject/project.xml" ]; then
       < project.xml.orig > project.xml ) || \
     { RES=$?; echo "WARN: Could not modify NetBeans project name"; } >&2
 fi
+
+echo ""
+echo "=== Resulting known branches and remote repos:"
+( cd "$DESTPATH" && git remote -v ) || RES=$?
+( cd "$DESTPATH" && git branch -a ) || RES=$?
+( echo ""; echo "=== Current branch:"
+  cd "$DESTPATH" && git branch -a | egrep '^\* ' ) || RES=$?
 
 echo ""
 echo "=== SUCCESS: git zclone '$FROM' '$DEST':" \
