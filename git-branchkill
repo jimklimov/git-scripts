@@ -1,0 +1,38 @@
+#!/bin/sh
+
+### Description: this Git method removes an obsolete (i.e. merged)
+### branch and its trackers.
+### Script Copyright (C) 2015 by Jim Klimov, License: MIT
+
+EXEC=""
+[ "$1" = -n ] && EXEC=echo && \
+    echo "Info: Running in read-only mode, no branches should get cut" >&2 && \
+    shift 1
+
+[ $# = 0 ] && echo "Error: branch name(s) required" >&2 && exit 1
+
+CURBRANCH="`git branch | egrep '^\* ' | sed 's,^\* ,,'`" || exit
+[ -n "$CURBRANCH" ] || exit
+
+REMOTES="`git remote -v | egrep 'push' | awk '{print $1}'`" || REMOTES=""
+
+RES=0
+for B in "$@" ; do
+    if [ "$B" = "$CURBRANCH" -o "$B" = master ] ; then
+        echo "Error: can not remove master branch, or current branch $B (change to some other)" >&2
+    else
+        for R in $REMOTES ; do
+            echo "Info: Removing remote branch $R/$B ..."
+            $EXEC git branch -dr "$R/$B" || RES=$?
+        done
+
+        echo "Info: Removing local branch $B ..."
+        $EXEC git branch -d "$B" || RES=$?
+    fi
+done
+
+[ $RES = 0 ] && \
+    echo "Overall: OK" || \
+    echo "Overall: FAILED ($RES)"
+
+exit $RES
