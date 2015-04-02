@@ -9,7 +9,7 @@
 ### the remote repositories, and so the local sources are most up-to-date.
 ### Copyright (C) 2014-2015 by Jim Klimov, License: MIT
 
-echo "=== Syncing from repo `pwd` branch `git branch` ..."
+echo "=== Syncing from repo `pwd` branch `git branch | sed 's,^\* ,,'` ..."
 for R in "" \
 	`git remote -v | egrep 'push' | awk '{print $1}' | grep -v upstream` \
 ; do
