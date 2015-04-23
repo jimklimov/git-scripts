@@ -5,34 +5,78 @@
 ### Script Copyright (C) 2015 by Jim Klimov, License: MIT
 
 EXEC=""
-[ "$1" = -n ] && EXEC=echo && \
-    echo "Info: Running in read-only mode, no branches should get cut" >&2 && \
-    shift 1
+LOCALKILL=-d
+REPODIRS=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+    -n) EXEC=echo
+        echo "Info: Running in read-only mode, no branches should get cut" >&2
+        shift 1
+        ;;
+    -D) LOCALKILL=-D
+        echo "Info: Allowing destruction of un-merged local branches!" >&2
+        shift 1
+        ;;
+    -R) if [ -n "$2" ] && [ -d "$2" ]; then
+            REPODIRS="$REPODIRS $2"
+            shift 2
+        else
+            echo "Error: Repo dir '$2' specified but not found" >&2
+            exit 1
+        fi
+        ;;
+    *) break ;; # fall through with branch names
+    esac
+done
 
 [ $# = 0 ] && echo "Error: branch name(s) required" >&2 && exit 1
 
-CURBRANCH="`git branch | egrep '^\* ' | sed 's,^\* ,,'`" || exit
-[ -n "$CURBRANCH" ] || exit
+branchkill() {
+    CURBRANCH="`git branch | egrep '^\* ' | sed 's,^\* ,,'`" || exit
+    [ -n "$CURBRANCH" ] || exit
 
-REMOTES="`git remote -v | egrep 'push' | awk '{print $1}'`" || REMOTES=""
+    REMOTES="`git remote -v | egrep 'push' | awk '{print $1}'`" || REMOTES=""
 
-RES=0
-for B in "$@" ; do
-    if [ "$B" = "$CURBRANCH" -o "$B" = master ] ; then
-        echo "Error: can not remove master branch, or current branch $B (change to some other)" >&2
-    else
-        for R in $REMOTES ; do
-            echo "Info: Removing remote branch $R/$B ..."
-            $EXEC git branch -dr "$R/$B" || RES=$?
-        done
+    RES=0
+    for B in "$@" ; do
+        if [ "$B" = "$CURBRANCH" -o "$B" = master ] ; then
+            echo "Error: can not remove master branch, or current branch $B" \
+                "(please change into some other)" >&2
+            RES=2
+        else
+            for R in $REMOTES ; do
+                echo "Info: Removing remote branch $R/$B ..."
+                $EXEC git branch -dr "$R/$B" || RES=$?
+            done
 
-        echo "Info: Removing local branch $B ..."
-        $EXEC git branch -d "$B" || RES=$?
-    fi
-done
+            echo "Info: Removing local branch $B ..."
+            $EXEC git branch $LOCALKILL "$B" || RES=$?
+        fi
+    done
 
-[ $RES = 0 ] && \
-    echo "Overall: OK" || \
-    echo "Overall: FAILED ($RES)"
+    [ $RES = 0 ] && \
+        echo "Overall for this repo: OK" || \
+        echo "Overall for this repo: FAILED ($RES)"
 
-exit $RES
+    return $RES
+}
+
+echo "Info: Current dir: '`pwd`'"
+if [ -z "$REPODIRS" ] ; then
+    branchkill "$@"
+    exit $?
+else
+    RRES=0
+    for D in $REPODIRS ; do
+        echo "Info: Killing branches in repodir '$D'"
+        ( cd "$D" && branchkill "$@" ) || RRES=$?
+        echo ""
+    done
+
+    [ $RRES = 0 ] && \
+        echo "Overall for multiple repos: OK" || \
+        echo "Overall for multiple repos: FAILED ($RRES)"
+
+    exit $RRES
+fi
