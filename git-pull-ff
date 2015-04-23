@@ -17,6 +17,27 @@ currentbranch="`git branch | grep '^* ' | sed 's,^* ,,'`" || \
 git pull --all
 git fetch --tags
 
+BREAK=no
+trapbreak() {
+    if [ "$BREAK" = yes ] ; then
+        echo "Stopping due to multiple breaks..."
+        if [ x"$currentbranch" != x -a "$currentbranch" != master ]; then
+            echo "Trying to return to branch $currentbranch..."
+            git checkout $currentbranch
+            git branch
+        fi
+        exit 1
+    fi >&2
+
+    echo 'Got stop signal, please wait until the end of critical section' >&2
+    BREAK=yes
+}
+
+checkbreak() {
+    [ "$BREAK" = yes ] && echo "Stopping due to break" && exit 1
+    return 0
+}
+
 git branch -r | grep -v ' -> ' | while read remotebranch
 do
     # Split <remote>/<branch> into remote and branchref parts
@@ -33,6 +54,9 @@ do
     fi
 done
 
+echo  "NOTE: Setting trap to avoid bad breakage (current-branch mismatch) on Ctrl+C"
+trap "trapbreak" 1 2 3 15
+
 git checkout master && \
 git pull --ff-only --all
 #git pull --ff-only master && \
@@ -46,8 +70,11 @@ git pull --ff-only --all
 
 echo "DONE!"
 [ x"$currentbranch" != x ] && \
-    echo "Started from branch '$currentbranch'... still there?"
+    echo "Started repo '`pwd`' from branch '$currentbranch'... still there?"
 git branch
+
+echo "NOTE: Clearing the trap for critical segment"
+trap "" 1 2 3 15
 
 git pull
 }
