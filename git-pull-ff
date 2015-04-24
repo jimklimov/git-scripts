@@ -6,11 +6,26 @@
 ### Script Copyright (C) 2014-2015 by Jim Klimov, License: MIT
 ### Pieces probably inspired by various posts from Stack Overflow
 
+PATH=/usr/gnu/bin:/usr/sfw/bin:/opt/sfw/bin:/opt/omniti/bin:/bin:/usr/bin:\
+/sbin:/usr/sbin:$PATH
+LANG=C
+LC_ALL=C
+export PATH LANG LC_ALL
+
 git_pull-ff() {
 
 currentbranchref="$(git symbolic-ref HEAD 2>&-)"
 currentbranch="`git branch | grep '^* ' | sed 's,^* ,,'`" || \
 	currentbranch=""
+
+TS="`date -u '+%Y%m%dT%H%M%SZ'`" || \
+    TS="`date | sed 's,[\@\:\ ],_,g'`" || \
+    TS="before-git-pull-ff$$"
+repodir="$(git rev-parse --show-toplevel)" && \
+    [ -d "$repodir/.zfs/snapshot" ] && \
+    echo "Trying to make ZFS snapshots '@$TS' of the repo dataset during git-pulling..." && \
+    mkdir "$repodir/.zfs/snapshot/git-pull-ff--$TS--0--beforePulls" || true
+
 
 #git pull $currentbranch
 #git pull --tags $currentbranch
@@ -26,6 +41,10 @@ trapbreak() {
             git checkout $currentbranch
             git branch
         fi
+
+        [ -d "$repodir/.zfs/snapshot" ] && \
+        mkdir "$repodir/.zfs/snapshot/git-pull-ff--$TS--X--CleanupAfterGotBreak" || true
+
         exit 1
     fi >&2
 
@@ -54,6 +73,9 @@ do
     fi
 done
 
+[ -d "$repodir/.zfs/snapshot" ] && \
+    mkdir "$repodir/.zfs/snapshot/git-pull-ff--$TS--1--afterRemoteFetched" || true
+
 echo  "NOTE: Setting trap to avoid bad breakage (current-branch mismatch) on Ctrl+C"
 trap "trapbreak" 1 2 3 15
 
@@ -61,6 +83,9 @@ git checkout master && \
 git pull --ff-only --all
 #git pull --ff-only master && \
 #git pull --ff-only --all
+
+[ -d "$repodir/.zfs/snapshot" ] && \
+    mkdir "$repodir/.zfs/snapshot/git-pull-ff--$TS--2--afterMasterBranch" || true
 
 [ x"$currentbranch" != x -a "$currentbranch" != master ] && \
     git checkout $currentbranch && \
@@ -76,7 +101,13 @@ git branch
 echo "NOTE: Clearing the trap for critical segment"
 trap "" 1 2 3 15
 
+[ -d "$repodir/.zfs/snapshot" ] && \
+    mkdir "$repodir/.zfs/snapshot/git-pull-ff--$TS--3--afterCurrentBranch" || true
+
 git pull
+
+[ -d "$repodir/.zfs/snapshot" ] && \
+    mkdir "$repodir/.zfs/snapshot/git-pull-ff--$TS--Z--afterSync" || true
 }
 
 git_pull-ff
