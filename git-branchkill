@@ -18,8 +18,15 @@ while [ $# -gt 0 ]; do
         echo "Info: Allowing destruction of un-merged local branches!" >&2
         shift 1
         ;;
-    -R) if [ -n "$2" ] && [ -d "$2" ]; then
-            REPODIRS="$REPODIRS $2"
+    -R) if [ -n "$2" ] ; then
+	    for D in $2 ; do
+		if [ -d "$D" ]; then
+		    REPODIRS="$REPODIRS $D"
+		else
+		    echo "Error: Repo dir '$D' specified but not found" >&2
+		    exit 1
+		fi
+	    done
             shift 2
         else
             echo "Error: Repo dir '$2' specified but not found" >&2
