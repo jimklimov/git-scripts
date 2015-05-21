@@ -99,7 +99,7 @@ echo "DONE!"
 git branch
 
 echo "NOTE: Clearing the trap for critical segment"
-trap "" 1 2 3 15
+trap "-" 1 2 3 15
 
 [ -d "$repodir/.zfs/snapshot" ] && \
     mkdir "$repodir/.zfs/snapshot/git-pull-ff--$TS--3--afterCurrentBranch" || true
