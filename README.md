@@ -14,6 +14,10 @@ project metadata, etc.) In effect this should yield similar results to local
 filesystem-based `git clone`, except that with ZFS cloning, anything present
 in the workspace dataset is cloned (such as old build products).
 
+* `git-branchkill` -- helps clean up local workspaces (that share an upstream)
+from proliferation of development branches, especially as those are getting
+merged into a common upstream and are no longer needed separately.
+
 As with any other Git methods, it suffices that these scripts are available in
 your `PATH` (e.g. in `$USER/bin`, or symlinked to `/usr/bin`, etc.) and then
 they can be called as `git method-name`, such as `git zclone ws1 /tmp/buildws`.
