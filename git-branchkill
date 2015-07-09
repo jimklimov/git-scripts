@@ -68,11 +68,21 @@ branchkill() {
         else
             for R in $REMOTES ; do
                 echo "Info: Removing remote branch $R/$B ..."
-                $EXEC git branch -dr "$R/$B" || RES=$?
+                _OUT="`$EXEC git branch -dr "$R/$B" 2>&1`"
+                _RES=$?
+                if echo "$_OUT" | egrep " branch '.*' not found" >/dev/null && [ "$_RES" != 0 ]; then
+                    echo "NOTerror: Ignoring the 'not found' error just below..."
+                else RES=$_RES ; fi
+                echo "$_OUT"
             done
 
             echo "Info: Removing local branch $B ..."
-            $EXEC git branch $LOCALKILL "$B" || RES=$?
+            _OUT="`$EXEC git branch $LOCALKILL "$B" 2>&1`"
+            _RES=$?
+            if echo "$_OUT" | egrep " branch '.*' not found" >/dev/null && [ "$_RES" != 0 ]; then
+                echo "NOTerror: Ignoring the 'not found' error just below..."
+            else RES=$_RES ; fi
+            echo "$_OUT"
         fi
     done
 
