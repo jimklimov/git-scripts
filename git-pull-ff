@@ -30,7 +30,9 @@ repodir="$(git rev-parse --show-toplevel)" && \
 #git pull $currentbranch
 #git pull --tags $currentbranch
 git pull --all
+git pull --all --recurse-submodules=yes
 git fetch --tags
+git fetch --tags --recurse-submodules=yes
 
 BREAK=no
 trapbreak() {
@@ -81,6 +83,7 @@ trap "trapbreak" 1 2 3 15
 
 git checkout master && \
 git pull --ff-only --all
+git pull --ff-only --all --recurse-submodules=yes
 #git pull --ff-only master && \
 #git pull --ff-only --all
 
@@ -89,7 +92,8 @@ git pull --ff-only --all
 
 [ x"$currentbranch" != x -a "$currentbranch" != master ] && \
     git checkout $currentbranch && \
-    git pull --ff-only --all
+    git pull --ff-only --all && \
+    git pull --ff-only --all --recurse-submodules=yes
 #    git pull --ff-only $currentbranch && \
 #    git pull --ff-only --all
 
