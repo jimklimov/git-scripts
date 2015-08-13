@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Simply merge current workspace with upstream/master
+# and sync the result back to default target repo
+
+git pull --all
+git pull upstream
+git merge upstream/master && git sync
+
