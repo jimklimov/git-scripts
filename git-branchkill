@@ -53,6 +53,10 @@ done
 
 [ $# = 0 ] && echo "Error: branch name(s) required" >&2 && exit 1
 
+### List of failed-to-kill objects:
+### "[MRL](RESCODE)\tPATH\tBRANCH\tREASON"
+FAILED=""
+
 branchkill() {
     CURBRANCH="`git branch | egrep '^\* ' | sed 's,^\* ,,'`" || exit
     [ -n "$CURBRANCH" ] || exit
@@ -65,6 +69,8 @@ branchkill() {
             echo "Error: can not remove master branch, or current branch $B" \
                 "(please change into some other)" >&2
             RES=2
+            FAILED="$FAILED
+M($RES)	`pwd`	$B	master branch, or current branch"
         else
             for R in $REMOTES ; do
                 echo "Info: Removing remote branch $R/$B ..."
@@ -72,7 +78,11 @@ branchkill() {
                 _RES=$?
                 if echo "$_OUT" | egrep " branch '.*' not found" >/dev/null && [ "$_RES" != 0 ]; then
                     echo "NOTerror: Ignoring the 'not found' error just below..."
-                else RES=$_RES ; fi
+                else
+                    RES=$_RES
+                    [ "$_RES" != 0 ] && FAILED="$FAILED
+R($RES)	`pwd`	$B	`echo ${_OUT} | tr '\n' ' '`"
+                fi
                 echo "$_OUT"
             done
 
@@ -81,7 +91,11 @@ branchkill() {
             _RES=$?
             if echo "$_OUT" | egrep " branch '.*' not found" >/dev/null && [ "$_RES" != 0 ]; then
                 echo "NOTerror: Ignoring the 'not found' error just below..."
-            else RES=$_RES ; fi
+            else
+                RES=$_RES
+                [ "$_RES" != 0 ] && FAILED="$FAILED
+L($RES)	`pwd`	$B	`echo ${_OUT} | tr '\n' ' '`"
+            fi
             echo "$_OUT"
         fi
     done
@@ -94,20 +108,30 @@ branchkill() {
 }
 
 echo "Info: Current dir: '`pwd`'"
+RRES=0
 if [ -z "$REPODIRS" ] ; then
     branchkill "$@"
-    exit $?
+    RRES=$?
+    REPOSTR="single repo"
 else
-    RRES=0
+    _PWD="`pwd`"
     for D in $REPODIRS ; do
         echo "Info: Killing branches in repodir '$D'"
-        ( cd "$D" && branchkill "$@" ) || RRES=$?
+        trap "cd ${_PWD} ; echo 'Killed by signal!' >&2; [ ${RRES} = 0 ] && RRES=2; break;" 1 2 3 15
+        { cd "$D" && branchkill "$@" ; } || RRES=$?
+        cd "${_PWD}"
+        trap '-' 1 2 3 15
         echo ""
     done
-
-    [ $RRES = 0 ] && \
-        echo "Overall for multiple repos: OK" || \
-        echo "Overall for multiple repos: FAILED ($RRES)"
-
-    exit $RRES
+    REPOSTR="multiple repos"
 fi
+
+[ $RRES = 0 ] && \
+    echo "Overall for ${REPOSTR}: OK" || \
+    echo "Overall for ${REPOSTR}: FAILED ($RRES)"
+
+[ -n "$FAILED" ] && \
+    echo "List of failed items: $FAILED"
+    # First line is empty by construction process
+
+exit $RRES
