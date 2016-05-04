@@ -24,7 +24,7 @@
 ### just the fresh repository.
 ### Also note that this did not yet intend to support cloning of bare repos.
 ###
-### Copyright (C) 2013-2015 by Jim Klimov <jim@jimklimov.com>, License: MIT
+### Copyright (C) 2013-2016 by Jim Klimov <jim@jimklimov.com>, License: MIT
 ###     https://github.com/jimklimov/git-scripts
 
 PATH=/usr/gnu/bin:/usr/sfw/bin:/opt/sfw/bin:/opt/omniti/bin:/bin:\
@@ -33,9 +33,33 @@ LANG=C
 LC_ALL=C
 export PATH LANG LC_ALL
 
+[ -n "${REWRITE_ORIGIN-}" ] || REWRITE_ORIGIN="yes"
+
+usage() {
+	cat <<EOH
+This Git plugin allows to clone a local or remote git repo into a dedicated ZFS
+filesystem dataset. It requires that your system does have ZFS support.
+Note that local repos are zfs-cloned including any cruft in the workspace, and
+remote URLs (including file:/// schema) are git-cloned without untracked files.
+To clone a directory which is not a dedicated dataset you must use URL schema.
+
+Usage: $0 FROM [DEST] [-b|--branch BNAME] [-B|--new-branch BNAME]
+	FROM	Required argument - the local (ZFS dataset) or remote (any URL)
+			source repository to be cloned into DEST
+	DEST	Local path to be created; defaults to basename of FROM (without the
+			optional .git extension) if omitted or empty
+When both FROM and DEST are defined, further arguments can be passed:
+	-b NAME	After cloning, checkout the branch NAME as the current workspace
+	-B NAME	After cloning, create and checkout branch NAME as current workspace
+	-NR|--no-rewrite-origin	By default, this script manipulates the "origin" and
+			"origin-parent" repo references for local clones (FROM is ZFS);
+			this option disables this activity
+EOH
+}
+
 # Verify that we have a usable ZFS command
 zfs --help 2>&1 | egrep -i 'dataset|snapshot|clone|volume' >/dev/null || \
-	{ echo "FATAL: No suitable 'zfs' command found!" >&2 && exit 2; }
+	{ usage; echo "FATAL: No suitable 'zfs' command found!" >&2 && exit 2; }
 
 # Currently we accept at least two CLI parameters: FROM and DEST
 #[ $# -lt 2 -o -z "$1" -o -z "$2" ] && \
@@ -49,6 +73,10 @@ FROM="$1"
 shift
 
 case "$FROM" in
+	-h|-help|--help)
+		usage
+		exit 0
+		;;
 	*://*|*@*:*)
 		# TODO: This misses the "alternative scp-like syntax"
 		# aka   [user@]host.xz:path/to/repo.git/
@@ -58,44 +86,44 @@ case "$FROM" in
 		;;
 	*)
 		FROM_TYPE=LOCAL
-	# Other sanity checks
-	[ -z "$FROM" -o ! -d "$FROM" ] && \
-		echo "Required: FROM must exist as a directory" >&2 && exit 1
-	FROMPATH="`cd "$FROM" && pwd`" || FROMPATH=""
-	[ -z "$FROMPATH" ] && \
-		echo "Required: FROM must exist as a directory" >&2 && exit 1
-	[ ! -d "$FROM/.git" ] && \
-		echo "Required: FROM must be a Git repository" >&2 && exit 1
-	[ ! -d "$FROM/.zfs/snapshot" ] && \
-		echo "Required: FROM must be a ZFS POSIX dataset" >&2 && exit 1
+		# Other sanity checks
+		[ -z "$FROM" -o ! -d "$FROM" ] && \
+			echo "Required: FROM must exist as a directory" >&2 && exit 1
+		FROMPATH="`cd "$FROM" && pwd`" || FROMPATH=""
+		[ -z "$FROMPATH" ] && \
+			echo "Required: FROM must exist as a directory" >&2 && exit 1
+		[ ! -d "$FROM/.git" ] && \
+			echo "Required: FROM must be a Git repository" >&2 && exit 1
+		[ ! -d "$FROM/.zfs/snapshot" ] && \
+			echo "Required: FROM must be a ZFS POSIX dataset" >&2 && exit 1
 
-	FROMDS="`cd "$FROMPATH" && df -k . | grep / | head -1 | awk '{print $1}'`" || \
-		FROMDS=""
-	[ -z "$FROMDS" ] && \
-		echo "Required: FROM must be a mounted ZFS POSIX dataset" >&2 && \
-		exit 1
+		FROMDS="`cd "$FROMPATH" && df -k . | grep / | head -1 | awk '{print $1}'`" || \
+			FROMDS=""
+		[ -z "$FROMDS" ] && \
+			echo "Required: FROM must be a mounted ZFS POSIX dataset" >&2 && \
+			exit 1
 
-	# Validate both ZFS command and FROM dataset name
-	echo "=== FROM dataset:"
-	zfs list -o \
-		mountpoint,space,refer,lrefer,dedup,compression,compressratio,sharenfs,sharesmb \
-		"$FROMDS"
-	[ $? != 0 ] && \
-		echo "FATAL: Couldn't use ZFS to review dataset properties" >&2 && \
-		exit 1
-	;;
+		# Validate both ZFS command and FROM dataset name
+		echo "=== FROM dataset:"
+		zfs list -o \
+			mountpoint,space,refer,lrefer,dedup,compression,compressratio,sharenfs,sharesmb \
+			"$FROMDS"
+		[ $? != 0 ] && \
+			echo "FATAL: Couldn't use ZFS to review dataset properties" >&2 && \
+			exit 1
+		;;
 esac
 
 ### If we have another parameter, snatch it as the destination
 DEST=""
 [ $# -gt 0 ] && \
-    DEST="$1" && \
-    shift
+	DEST="$1" && \
+	shift
 
 if [ -z "$DEST" ]; then
-    echo "WARN: No explicit DEST was provided, so assigning one as a basename of FROM" >&2
-    echo "      Note that this may fail due to conflicts a bit later..." >&2
-    DEST="`basename "$FROM" .git`"
+	echo "WARN: No explicit DEST was provided, so assigning one as a basename of FROM" >&2
+	echo "      Note that this may fail due to conflicts a bit later..." >&2
+	DEST="`basename "$FROM" .git`"
 fi
 
 # Verify that "DEST" is an empty directory or does not exist
@@ -114,20 +142,21 @@ fi
 CHECKOUT_BRANCH=""
 CREATE_BRANCH_FLAG=""
 while [ $# -gt 0 ]; do
-    case "$1" in
-        -b|--branch)
-            CHECKOUT_BRANCH="$2"
-            shift ;;
-        -B|--new-branch)
-            ### Note: if the named branch exists, it is just checked out and no
-            ### error propagates into the exit-code (that we couldn't create it)
-            CREATE_BRANCH_FLAG="-b"
-            CHECKOUT_BRANCH="$2"
-            shift ;;
-        *) echo "WARN: git-zclone currently does not support parameter '$1'" >&2
-            ;;
-    esac
-    shift
+	case "$1" in
+		-b|--branch)
+			CHECKOUT_BRANCH="$2"
+			shift ;;
+		-B|--new-branch)
+			### Note: if the named branch exists, it is just checked out and no
+			### error propagates into the exit-code (that we couldn't create it)
+			CREATE_BRANCH_FLAG="-b"
+			CHECKOUT_BRANCH="$2"
+			shift ;;
+		-NR|--no-rewrite-origin) REWRITE_ORIGIN=no ;;
+		*) echo "WARN: git-zclone currently does not support parameter '$1'" >&2
+			;;
+	esac
+	shift
 done
 
 #################################################################################
@@ -171,89 +200,89 @@ fi
 if [ -z "$DESTDS" ]; then
 	case "$FROM_TYPE" in
 	LOCAL)
-	    # Finally, try to spawn the clone "near" the original repo
-	    # Note that if it is mounted in an explicit location
-	    DESTDS="`dirname "$FROMDS"`/`basename "$DESTPATH"`"
-	    [ x"`dirname "$FROMPATH"`/`basename "$DEST"`" != x"$DESTPATH" ] && \
-		DESTMPT="$DESTPATH"
-	    ;;
+		# Finally, try to spawn the clone "near" the original repo
+		# Note that if it is mounted in an explicit location
+		DESTDS="`dirname "$FROMDS"`/`basename "$DESTPATH"`"
+		[ x"`dirname "$FROMPATH"`/`basename "$DEST"`" != x"$DESTPATH" ] && \
+			DESTMPT="$DESTPATH"
+		;;
 	URL)
-	    # Finally, try to spawn the clone under current directory's dataset
-	    DESTDS="`df -k . | grep / | head -1 | awk '{print $1}'`/`basename "$DESTPATH"`" || \
-	    DESTDS=""
-	    [ x"`pwd`/`basename "$DEST"`" != x"$DESTPATH" ] && \
-		DESTMPT="$DESTPATH"
-	    case "$DESTDS" in
+		# Finally, try to spawn the clone under current directory's dataset
+		DESTDS="`df -k . | grep / | head -1 | awk '{print $1}'`/`basename "$DESTPATH"`" || \
+		DESTDS=""
+		[ x"`pwd`/`basename "$DEST"`" != x"$DESTPATH" ] && \
+			DESTMPT="$DESTPATH"
+		case "$DESTDS" in
 		/*|*:*|swap|"")	# Local non-ZFS path or an NFS mount
-		    echo "FATAL: The container backing store DESTDS='$DESTDS' does not seem like a local ZFS dataset!" >&2
-		    echo "Try:   git clone '$FROM' '$DEST'" >&2
-		    exit 1
-		    ;;
-	    esac
-	    ;;
+			echo "FATAL: The container backing store DESTDS='$DESTDS' does not seem like a local ZFS dataset!" >&2
+			echo "Try:   git clone '$FROM' '$DEST'" >&2
+			exit 1
+			;;
+		esac
+		;;
 	esac
 fi
 
 case "$FROM_TYPE" in
-    LOCAL)
-	# Validate both ZFS command and DEST dataset name
-	zfs list -o name "$DESTDS" >/dev/null 2>&1 && \
-		echo "FATAL: DEST ZFS dataset $DESTDS already exists?" \
-		    "Can't clone into it!" >&2 && exit 2
+	LOCAL)
+		# Validate both ZFS command and DEST dataset name
+		zfs list -o name "$DESTDS" >/dev/null 2>&1 && \
+			echo "FATAL: DEST ZFS dataset $DESTDS already exists?" \
+			     "Can't clone into it!" >&2 && exit 2
 
-	echo "=== Cloning from '$FROMDS@git-auto-snap-clone-$TS'" \
-	    "to '$DESTDS' (mountpoint=$DESTMPT)..."
+		echo "=== Cloning from '$FROMDS@git-auto-snap-clone-$TS'" \
+		     "to '$DESTDS' (mountpoint=$DESTMPT)..."
 
-	zfs snapshot -r "$FROMDS@git-auto-snap-clone-$TS" || \
-	{ RES=$?; echo "FATAL: Could not snapshot the dataset" \
-		"'$FROMDS@git-auto-snap-clone-$TS'" >&2; exit $RES; }
+		zfs snapshot -r "$FROMDS@git-auto-snap-clone-$TS" || \
+		{ RES=$?; echo "FATAL: Could not snapshot the dataset" \
+			"'$FROMDS@git-auto-snap-clone-$TS'" >&2; exit $RES; }
 
-	zfs clone -p -o mountpoint=none \
-		"$FROMDS@git-auto-snap-clone-$TS" "$DESTDS" || \
-	{ RES=$?
-	  echo "FATAL: Could not clone the dataset"
-	  echo "  from '$FROMDS@git-auto-snap-clone-$TS'"
-	  echo "  to '$DESTDS'"
-	  echo "Please make sure that dataset name is valid and that proper 'zfs allow'"
-	  echo "permissions were set on destination container dataset, e.g. at least:"
-	  echo "  sudo zfs allow -ldu $USER clone,create,destroy,diff,mount,promote,rollback,snapshot,share,sharenfs,sharesmb,canmount,mountpoint `dirname $DESTDS`"
-	  echo "Maybe also allow: send,receive,dedup,compression,hold,release ..."
-	  echo "::: Current set of destination container permissions is:"
-	  zfs allow "`dirname $DESTDS`"
-	  echo ""
-	  echo "::: Current set of original repository dataset permissions is:"
-	  zfs allow "$FROMDS"
-	  echo ""
-	  echo "FATAL: Dataset cloning FAILED"
-	  exit $RES; } >&2
+		zfs clone -p -o mountpoint=none \
+			"$FROMDS@git-auto-snap-clone-$TS" "$DESTDS" || \
+		{ RES=$?
+		  echo "FATAL: Could not clone the dataset"
+		  echo "  from '$FROMDS@git-auto-snap-clone-$TS'"
+		  echo "  to '$DESTDS'"
+		  echo "Please make sure that dataset name is valid and that proper 'zfs allow'"
+		  echo "permissions were set on destination container dataset, e.g. at least:"
+		  echo "  sudo zfs allow -ldu $USER clone,create,destroy,diff,mount,promote,rollback,snapshot,share,sharenfs,sharesmb,canmount,mountpoint `dirname $DESTDS`"
+		  echo "Maybe also allow: send,receive,dedup,compression,hold,release ..."
+		  echo "::: Current set of destination container permissions is:"
+		  zfs allow "`dirname $DESTDS`"
+		  echo ""
+		  echo "::: Current set of original repository dataset permissions is:"
+		  zfs allow "$FROMDS"
+		  echo ""
+		  echo "FATAL: Dataset cloning FAILED"
+		  exit $RES; } >&2
 
-	echo "=== Trying to carry over some properties of the source dataset..."
-	EXCLUDE_ATTRS='canmount|mountpoint'
-	zfs get all "$FROMDS" | egrep ' (local|received)$' | \
-		egrep -v "$EXCLUDE_ATTRS" | while read _D A V _T; do \
-			echo "$A=$V"; zfs set "$A=$V" "$DESTDS"; \
-		done
-	# TODO: zfs allow permissions if set directly on FROMDS?
-	# TODO: zfs smb share ACL files?
-	# TODO: sub-datasets?
-	;;
-    URL)
-	if zfs list -o name "$DESTDS" >/dev/null 2>&1 ; then
-	    echo "NOTE: DEST ZFS dataset $DESTDS already exists (and is empty)"
-	else
-	    zfs create "$DESTDS" || \
-	{ RES=$?
-	  echo "FATAL: Could not create the dataset '$DESTDS'"
-	  echo "Please make sure that dataset name is valid and that proper 'zfs allow'"
-	  echo "permissions were set on destination container dataset, e.g. at least:"
-	  echo "  sudo zfs allow -ldu $USER clone,create,destroy,diff,mount,promote,rollback,snapshot,share,sharenfs,sharesmb,canmount,mountpoint `dirname $DESTDS`"
-	  exit $RES; } >&2
-	fi
-	;;
-    *)
-	echo "FATAL: Unimplemented FROM_TYPE='$FROM_TYPE'!" >&2
-	exit 3
-	;;
+		echo "=== Trying to carry over some properties of the source dataset..."
+		EXCLUDE_ATTRS='canmount|mountpoint'
+		zfs get all "$FROMDS" | egrep ' (local|received)$' | \
+			egrep -v "$EXCLUDE_ATTRS" | while read _D A V _T; do \
+				echo "$A=$V"; zfs set "$A=$V" "$DESTDS"; \
+			done
+		# TODO: zfs allow permissions if set directly on FROMDS?
+		# TODO: zfs smb share ACL files?
+		# TODO: sub-datasets?
+		;;
+	URL)
+		if zfs list -o name "$DESTDS" >/dev/null 2>&1 ; then
+			echo "NOTE: DEST ZFS dataset $DESTDS already exists (and is empty)"
+		else
+			zfs create "$DESTDS" || \
+			{ RES=$?
+			  echo "FATAL: Could not create the dataset '$DESTDS'"
+			  echo "Please make sure that dataset name is valid and that proper 'zfs allow'"
+			  echo "permissions were set on destination container dataset, e.g. at least:"
+			  echo "  sudo zfs allow -ldu $USER clone,create,destroy,diff,mount,promote,rollback,snapshot,share,sharenfs,sharesmb,canmount,mountpoint `dirname $DESTDS`"
+			  exit $RES; } >&2
+		fi
+		;;
+	*)
+		echo "FATAL: Unimplemented FROM_TYPE='$FROM_TYPE'!" >&2
+		exit 3
+		;;
 esac
 
 RES=0
@@ -285,41 +314,43 @@ echo "===== DEST $DESTDS:"
 zfs allow "$DESTDS"
 
 case "$FROM_TYPE" in
-    LOCAL)
-	echo ""
-	echo "=== Rewriting Git 'origin' of the new repo for automated sync with the parent"
-	echo "    (in local filesystem); retaining the original 'origin' as 'origin-parent'"
-	ORIGIN="$FROMPATH"
-	[ x"`dirname "$FROMPATH"`" = x"`dirname "$DESTPATH"`" ] && \
-		ORIGIN="../`basename "$FROMPATH"`"
-	( cd "$DESTPATH" && {
-	  git remote rm origin-parent || echo "OK_TO_FAIL"
-	  git remote rename origin origin-parent || echo "OK_TO_FAIL"
-	  git remote add origin "$ORIGIN" && \
-            echo "===== Refresh Git tracking of origin..." && \
-            git pull --all; } ) || \
-	{ RES=$?; echo "FATAL: Could not set Git origin URL"; exit $RES; } >&2
-	### This was fatal because maybe "git" or "cd" failed, or something?
-	;;
-    URL)
-	cd "$DESTPATH" && git clone "$FROM" . || \
-	{ RES=$?
-	  echo "FATAL: Could not clone remote Git repo '$FROM' to local dataset '$DESTDS' mounted at '$DESTPATH'"
-	  exit $RES; } >&2
-	;;
+	LOCAL)
+		if [ x"$REWRITE_ORIGIN" = xyes ] ; then
+			echo ""
+			echo "=== Rewriting Git 'origin' of the new repo for automated sync with the parent"
+			echo "    (in local filesystem); retaining the original 'origin' as 'origin-parent'"
+			ORIGIN="$FROMPATH"
+			[ x"`dirname "$FROMPATH"`" = x"`dirname "$DESTPATH"`" ] && \
+				ORIGIN="../`basename "$FROMPATH"`"
+			( cd "$DESTPATH" && {
+			  git remote rm origin-parent || echo "OK_TO_FAIL"
+			  git remote rename origin origin-parent || echo "OK_TO_FAIL"
+			  git remote add origin "$ORIGIN" && \
+			  echo "===== Refresh Git tracking of origin..." && \
+			  git pull --all; } ) || \
+			{ RES=$?; echo "FATAL: Could not set Git origin URL"; exit $RES; } >&2
+			### This was fatal because maybe "git" or "cd" failed, or something?
+		fi
+		;;
+	URL)
+		cd "$DESTPATH" && git clone "$FROM" . || \
+		{ RES=$?
+		  echo "FATAL: Could not clone remote Git repo '$FROM' to local dataset '$DESTDS' mounted at '$DESTPATH'"
+		  exit $RES; } >&2
+		;;
 esac
 
 if [ -n "$CHECKOUT_BRANCH" ]; then
-    echo ""
-    [ -z "$CREATE_BRANCH_FLAG" ] && \
-        echo "=== Checking out Git branch '$CHECKOUT_BRANCH' in the new repo" || \
-        echo "=== Creating and checking out Git branch '$CHECKOUT_BRANCH' in the new repo"
+	echo ""
+	[ -z "$CREATE_BRANCH_FLAG" ] && \
+		echo "=== Checking out Git branch '$CHECKOUT_BRANCH' in the new repo" || \
+		echo "=== Creating and checking out Git branch '$CHECKOUT_BRANCH' in the new repo"
 
-    ( cd "$DESTPATH" && \
-      { [ -z "$CREATE_BRANCH_FLAG" ] || \
-          git checkout $CREATE_BRANCH_FLAG "$CHECKOUT_BRANCH"; } || \
-      git checkout "$CHECKOUT_BRANCH" ) || \
-    { RES=$?; echo "WARN: Could not change Git branch"; } >&2
+	( cd "$DESTPATH" && \
+	  { [ -z "$CREATE_BRANCH_FLAG" ] || \
+	    git checkout $CREATE_BRANCH_FLAG "$CHECKOUT_BRANCH"; } || \
+	  git checkout "$CHECKOUT_BRANCH" ) || \
+	{ RES=$?; echo "WARN: Could not change Git branch"; } >&2
 fi
 
 echo ""
@@ -335,13 +366,13 @@ echo "    for automated sync with the parent one"
   [ -n "$CREATE_BRANCH_FLAG" ] && echo "OK_TO_FAIL" || RES=$RES_T; } >&2
 
 if [ -d "$DESTPATH/nbproject" -a -s "$DESTPATH/nbproject/project.xml" ]; then
-    echo ""
-    echo "=== Rewriting NetBeans project name..."
-    ( cd "$DESTPATH/nbproject" && \
-      cp -pf project.xml project.xml.orig && \
-      sed 's|<name>'"`basename "$FROMPATH"`"'</name>|<name>'"`basename "$DESTPATH"`"'</name>|' \
-      < project.xml.orig > project.xml ) || \
-    { RES=$?; echo "WARN: Could not modify NetBeans project name"; } >&2
+	echo ""
+	echo "=== Rewriting NetBeans project name..."
+	( cd "$DESTPATH/nbproject" && \
+	  cp -pf project.xml project.xml.orig && \
+	  sed 's|<name>'"`basename "$FROMPATH"`"'</name>|<name>'"`basename "$DESTPATH"`"'</name>|' \
+	  < project.xml.orig > project.xml ) || \
+	{ RES=$?; echo "WARN: Could not modify NetBeans project name"; } >&2
 fi
 
 echo ""
@@ -354,8 +385,12 @@ echo "=== Resulting known branches and remote repos:"
 echo ""
 echo "=== SUCCESS: git zclone '$FROM' '$DEST':" \
 	"created '$DESTDS' mounted to '$DESTPATH'"
-[ "$FROM_TYPE" = LOCAL ] && \
-	echo "and changed git origin to '$ORIGIN'"
+if [ x"$REWRITE_ORIGIN" = xyes ] ; then
+	[ "$FROM_TYPE" = LOCAL ] && \
+		echo "and changed git origin to '$ORIGIN'"
+else
+	echo "and did not mangle git origin"
+fi
 if [ "$RES" != 0 ]; then
 	echo "=== WARN: Some non-fatal failures were detected" \
 		"and reported above" >&2
