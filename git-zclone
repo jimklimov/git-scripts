@@ -9,11 +9,12 @@
 ### The new dataset is created (subject to "zfs allow" permissions as well as
 ### POSIX permissions to create the mountpoint) under the hierarchy node which
 ### would contain its new mountpoint.
-### Currently this clones only one dataset (non-recursive).
+### Currently this clones only one dataset and one repo (non-recursive).
 ### After the initial cloning, the new repo is adjusted to reference its local
 ### filesystem parent as the default 'origin' (any initial 'origin' is renamed
-### into 'origin-parent'), and if NetBeans workspace metadata is found - then
-### the NB Project instance is renamed according to new dataset base-name.
+### into 'origin-parent') - this can be disabled by '-NR' argument.
+### If the NetBeans workspace metadata is found - then the NB Project instance
+### is renamed in the metadata files according to new dataset base-name.
 ### Parameters specify the filesystem paths, just like ordinary "git clone" for
 ### local filesystem source and destination.
 ### Note that ZFS-based repository cloning also refers the non-repo cruft in
@@ -33,9 +34,15 @@ LANG=C
 LC_ALL=C
 export PATH LANG LC_ALL
 
-[ -n "${REWRITE_ORIGIN-}" ] || REWRITE_ORIGIN="yes"
+### Default values for command-line controllable flags and options
+CHECKOUT_BRANCH=""
+CREATE_BRANCH_FLAG=""
+REMOTE_UPSTREAM=""
+REMOTE_UPSTREAM_CANPUSH="no"
+REWRITE_ORIGIN="yes"
 
 usage() {
+	# NOTE: No TABs in the usage markup, so we stay in 80-column formatting
 	cat <<EOH
 This Git plugin allows to clone a local or remote git repo into a dedicated ZFS
 filesystem dataset. It requires that your system does have ZFS support.
@@ -44,16 +51,22 @@ remote URLs (including file:/// schema) are git-cloned without untracked files.
 To clone a directory which is not a dedicated dataset you must use URL schema.
 
 Usage: $0 FROM [DEST] [-b|--branch BNAME] [-B|--new-branch BNAME]
-	FROM	Required argument - the local (ZFS dataset) or remote (any URL)
-			source repository to be cloned into DEST
-	DEST	Local path to be created; defaults to basename of FROM (without the
-			optional .git extension) if omitted or empty
+        [-U|--upstream|--set-upstream|-URW URL] [-NR|--no-rewrite-origin]
+    FROM    Required argument - the local (ZFS dataset) or remote (any URL)
+            source repository to be cloned into DEST
+    DEST    Local path to be created; defaults to basename of FROM (without the
+            optional .git extension) if omitted or empty
 When both FROM and DEST are defined, further arguments can be passed:
-	-b NAME	After cloning, checkout the branch NAME as the current workspace
-	-B NAME	After cloning, create and checkout branch NAME as current workspace
-	-NR|--no-rewrite-origin	By default, this script manipulates the "origin" and
-			"origin-parent" repo references for local clones (FROM is ZFS);
-			this option disables this activity
+    -b NAME    After cloning, checkout the branch NAME as the current workspace
+    -B NAME    After cloning, create+checkout branch NAME as current workspace
+    -U URL    Set (maybe replace) the "upstream" repo reference to specified URL
+            NOTE: "-U" also explicitly invalidates push_url so even a maintainer
+            can not corrupt the common-upstream repository by mistake; use the
+            "-URW URL" variant to allow not-invalidating the push_url
+            NOTE: local ZFS-cloned repos likely have an upstream already set up
+    -NR|--no-rewrite-origin    By default, this script manipulates the "origin"
+            and backup "origin-parent" repo references for local clones (where
+            FROM is a local ZFS dataset); this option disables this activity
 EOH
 }
 
@@ -139,10 +152,12 @@ fi
 	exit 1
 
 ### Process optional further CLI parameters
-CHECKOUT_BRANCH=""
-CREATE_BRANCH_FLAG=""
 while [ $# -gt 0 ]; do
 	case "$1" in
+		-h|-help|--help)
+			usage
+			exit 0
+			;;
 		-b|--branch)
 			CHECKOUT_BRANCH="$2"
 			shift ;;
@@ -152,8 +167,17 @@ while [ $# -gt 0 ]; do
 			CREATE_BRANCH_FLAG="-b"
 			CHECKOUT_BRANCH="$2"
 			shift ;;
+		-U|-URO|--upstream|--set-upstream)
+			REMOTE_UPSTREAM="$2"
+			REMOTE_UPSTREAM_CANPUSH="no"
+			shift ;;
+		-URW)
+			REMOTE_UPSTREAM="$2"
+			REMOTE_UPSTREAM_CANPUSH="yes"
+			shift ;;
 		-NR|--no-rewrite-origin) REWRITE_ORIGIN=no ;;
-		*) echo "WARN: git-zclone currently does not support parameter '$1'" >&2
+		*) echo "FATAL: git-zclone currently does not support parameter '$1'" >&2
+			exit 1
 			;;
 	esac
 	shift
@@ -312,11 +336,11 @@ if [ "$FROM_TYPE" = LOCAL ]; then
 fi
 echo "===== DEST $DESTDS:"
 zfs allow "$DESTDS"
+echo ""
 
 case "$FROM_TYPE" in
 	LOCAL)
 		if [ x"$REWRITE_ORIGIN" = xyes ] ; then
-			echo ""
 			echo "=== Rewriting Git 'origin' of the new repo for automated sync with the parent"
 			echo "    (in local filesystem); retaining the original 'origin' as 'origin-parent'"
 			ORIGIN="$FROMPATH"
@@ -330,15 +354,39 @@ case "$FROM_TYPE" in
 			  git pull --all; } ) || \
 			{ RES=$?; echo "FATAL: Could not set Git origin URL"; exit $RES; } >&2
 			### This was fatal because maybe "git" or "cd" failed, or something?
+		else
+			echo "NOTE: as requested, I did not mangle git origin for the local clone"
 		fi
 		;;
 	URL)
+		echo "=== Cloning remote Git repo..." && \
 		cd "$DESTPATH" && git clone "$FROM" . || \
 		{ RES=$?
 		  echo "FATAL: Could not clone remote Git repo '$FROM' to local dataset '$DESTDS' mounted at '$DESTPATH'"
 		  exit $RES; } >&2
 		;;
 esac
+
+if [ -n "$REMOTE_UPSTREAM" ]; then
+	echo ""
+	echo "=== Setting Git 'upstream' of the new repo to be '$REMOTE_UPSTREAM'"
+	OLD_UPSTREAM="`cd "$DESTPATH" && git remote -v | grep -w upstream`" 2>/dev/null \
+		&& [ -n "$OLD_UPSTREAM" ] || OLD_UPSTREAM=""
+	[ -n "$OLD_UPSTREAM" ] && \
+		echo "=== Old Git 'upstream' setup defined in the new repo was:" && \
+		echo "$OLD_UPSTREAM"
+	( cd "$DESTPATH" && {
+	  git remote rm upstream || echo "OK_TO_FAIL"
+	  git remote add upstream "$REMOTE_UPSTREAM" && \
+	  if [ x"$REMOTE_UPSTREAM_CANPUSH" = xno ]; then
+	    echo "===== Disabling ability to Git push into the upstream..."
+	    git remote set-url --push upstream "no_push" || exit
+	  else : ; fi && \
+	  echo "===== Refresh Git tracking of upstream..." && \
+	  git pull --all; } ) || \
+	{ RES=$?; echo "FATAL: Could not set Git upstream URL and/or pull it"; exit $RES; } >&2
+	### This was fatal because maybe "git" or "cd" failed, or something?
+fi
 
 if [ -n "$CHECKOUT_BRANCH" ]; then
 	echo ""
