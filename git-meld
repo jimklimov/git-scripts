@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Use "meld" from PATH as the graphical difference viewer for Git
+# Some other DIFFVIEWER pathname can be passed from env (~/.profile)
+# Copyright (C) 2016 by Jim Klimov
+
+[ -n "${DIFFVIEWER-}" ] || DIFFVIEWER="meld"
+
+do_git_meld() {
+	if [ -n "${EXEC_DIFFVIEWER-}" ]; then
+		# The "git diff" program passes about seven args to diff viewer
+		# We only need to handle a few
+		[ "${DEBUG_DIFFVIEWER-}" = yes ] && \
+			echo "DEBUG_DIFFVIEWER: $* (got $# args overall)" >&2
+		"${DIFFVIEWER}" "$2" "$5" 2>/dev/null || \
+			{ ERRCODE=$?; echo "ERROR ($ERRCODE) running '${DIFFVIEWER}' '$2' '$5'" >&2; return $ERRCODE; }
+		return 0
+	else
+		EXEC_DIFFVIEWER=yes
+		export EXEC_DIFFVIEWER
+		PAGER= git -c diff.external="$0" diff "$@"
+	fi
+}
+
+do_git_meld "$@"

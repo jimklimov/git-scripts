@@ -18,6 +18,10 @@ in the workspace dataset is cloned (such as old build products).
 from proliferation of development branches, especially as those are getting
 merged into a common upstream and are no longer needed separately.
 
+* `git-meld` -- wraps usage of a difference-viewing program such as `meld`
+(can be customized by setting `DIFFVIEWER` envvar in e.g. user profile) as
+the one-time renderer for `git diff` requests.
+
 As with any other Git methods, it suffices that these scripts are available in
 your `PATH` (e.g. in `$USER/bin`, or symlinked to `/usr/bin`, etc.) and then
 they can be called as `git method-name`, such as `git zclone ws1 /tmp/buildws`.
