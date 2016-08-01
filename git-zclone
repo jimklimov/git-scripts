@@ -40,6 +40,7 @@ CREATE_BRANCH_FLAG=""
 REMOTE_UPSTREAM=""
 REMOTE_UPSTREAM_CANPUSH="no"
 REWRITE_ORIGIN="yes"
+WIPE_WORKSPACE="no"
 
 usage() {
 	# NOTE: No TABs in the usage markup, so we stay in 80-column formatting
@@ -67,6 +68,9 @@ When both FROM and DEST are defined, further arguments can be passed:
     -NR|--no-rewrite-origin    By default, this script manipulates the "origin"
             and backup "origin-parent" repo references for local clones (where
             FROM is a local ZFS dataset); this option disables this activity
+    --wipe { -n | -f | -i } Run "git clean" in the zfs-cloned workspace to try
+            removing any build products and other untracked data (except the
+            netbeans dir, if present); -n = dry-run, -i = interact, -f = force
 EOH
 }
 
@@ -85,6 +89,7 @@ FROM="$1"
 ### Remove the original CLI parameters such as FROM and DEST
 shift
 
+# This only inspects the first argument; a more generic loop is below
 case "$FROM" in
 	-h|-help|--help)
 		usage
@@ -176,6 +181,11 @@ while [ $# -gt 0 ]; do
 			REMOTE_UPSTREAM_CANPUSH="yes"
 			shift ;;
 		-NR|--no-rewrite-origin) REWRITE_ORIGIN=no ;;
+		--wipe) case "$2" in
+				-n|-f|-i) WIPE_WORKSPACE="$2"; shift ;;
+				*) echo "FATAL: git-zclone: Unknown argument to --wipe: '$2'" >&2; exit 1 ;;
+			esac
+			;;
 		*) echo "FATAL: git-zclone currently does not support parameter '$1'" >&2
 			exit 1
 			;;
@@ -421,6 +431,24 @@ if [ -d "$DESTPATH/nbproject" -a -s "$DESTPATH/nbproject/project.xml" ]; then
 	  sed 's|<name>'"`basename "$FROMPATH"`"'</name>|<name>'"`basename "$DESTPATH"`"'</name>|' \
 	  < project.xml.orig > project.xml ) || \
 	{ RES=$?; echo "WARN: Could not modify NetBeans project name"; } >&2
+fi
+
+if [ x"$WIPE_WORKSPACE" != x"no" ]; then
+	case "$FROM_TYPE" in
+	LOCAL)
+		echo ""
+		echo "=== Wiping newly cloned workspace from files not tracked by Git:"
+		( cd "$DESTPATH" && { \
+			echo "    git clean -d -x -e 'nbproject' $WIPE_WORKSPACE" ; \
+			git clean -d -x -e 'nbproject' $WIPE_WORKSPACE ; \
+		  } ) || \
+			{ RES=$?; echo "WARN: Could not clean up workspace"; } >&2
+		;;
+	*)
+		echo ""
+		echo "=== SKIP: Wiping of newly cloned workspace is a no-op for a non-ZFS clone"
+		;;
+	esac
 fi
 
 echo ""

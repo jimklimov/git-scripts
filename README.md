@@ -12,7 +12,8 @@ missing updates from the remotes.
 then rewrites some metadata in the new clone (reference to `origin`, NetBeans
 project metadata, etc.) In effect this should yield similar results to local
 filesystem-based `git clone`, except that with ZFS cloning, anything present
-in the workspace dataset is cloned (such as old build products).
+in the workspace dataset is cloned (such as old build products) unless you
+add `--wipe -f` to the command-line.
 
 * `git-branchkill` -- helps clean up local workspaces (that share an upstream)
 from proliferation of development branches, especially as those are getting
