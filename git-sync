@@ -7,15 +7,15 @@
 ### Then this pulls any updates from remotes, ensuring that this workspace
 ### has been replicated to remotes first, and then gets any refreshers from
 ### the remote repositories, and so the local sources are most up-to-date.
-### Copyright (C) 2014-2015 by Jim Klimov, License: MIT
+### Copyright (C) 2014-2016 by Jim Klimov, License: MIT
 
-echo "=== Syncing from repo `pwd` branch `git branch | sed 's,^\* ,,'` ..."
+echo "=== Syncing from repo `pwd` branch `git branch | egrep '^\*' | sed 's,^\* ,,'` to known remotes..."
 for R in "" \
 	`git remote -v | egrep 'push' | awk '{print $1}' | grep -v upstream` \
 ; do
-	echo "=== Pushing 'all' to repo '$R' ..."
+	echo "=== Pushing 'all' to repo '${R:-<all_by_default>}' ..."
 	git push --all $R
-	echo "=== Pushing 'tags' to repo '$R' ..."
+	echo "=== Pushing 'tags' to repo '${R:-<all_by_default>}' ..."
 	git push --tags $R
 done
 
