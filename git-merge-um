@@ -1,9 +1,50 @@
 #!/bin/sh
 
-# Simply merge current workspace with upstream/master
-# and sync the result back to default target repo
+### This Git method script pulls all new commits, branches and tags from
+### an upstream repo (reference can be picked with "-R otherrepo"), and
+### updates your currently checked out branch with that upstream's "master"
+### branch (can be picked with "-B otherbranch"; see also branch-alias for
+### permament branch-name re-mappings). Optionally (-r) you can also rebase
+### the resulting current branch vs. the remote "upstream/master" so your
+### added work ends up as clean top-commits and no "merge" commits arise
+### in your own history (note that this may require you to `git push -f`
+### and you should NOT do this in shared repositories that anyone else
+### pulls from - but it is common practice to do so in private forks while
+### preparing a pull request).
+### Finally sync the result back to default target repo (usually "origin" -
+### depends on "--set-upstream-to" configuration of your branch).
+### Copyright (C) 2015-2016 by Jim Klimov, License: MIT
 
+BASE_REPO=upstream
+BASE_BRANCH=master
+DO_REBASE=no
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -R) BASE_REPO="$2"; shift ;;
+        -B) BASE_BRANCH="$2"; shift ;;
+        -r) DO_REBASE=yes ;;
+    esac
+    shift
+done
+
+CUR_BRANCH="`git branch | egrep '^\*' | sed 's,^\* ,,'`"
+echo "=== $0 in repo `pwd` branch ${CUR_BRANCH} ..."
+echo "=== Syncing from all remotes ..."
 git pull --all
-git pull upstream
-git merge upstream/master && git sync
+git pull --tags
+git pull "${BASE_REPO}"
 
+echo ""
+echo "=== Merging from repo ${BASE_REPO}/${BASE_BRANCH} into repo `pwd` branch ${CUR_BRANCH} ..."
+git merge "${BASE_REPO}/${BASE_BRANCH}" || exit
+if [ "$DO_REBASE" = yes ] ; then
+    echo ""
+    echo "=== Rebasing from repo ${BASE_REPO}/${BASE_BRANCH} into repo `pwd` branch ${CUR_BRANCH} ..."
+    git rebase -i "${BASE_REPO}/${BASE_BRANCH}" || exit
+    echo "=== NOTE: You may need to 'git push -f' to actually publish your changes"
+fi
+
+echo ""
+echo "=== Pushing the changes back..."
+git sync
