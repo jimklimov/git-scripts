@@ -27,7 +27,8 @@ merged into a common upstream and are no longer needed separately.
 
 * `git-meld` -- wraps usage of a difference-viewing program such as `meld`
 (can be customized by setting `DIFFVIEWER` envvar in e.g. user profile) as
-the one-time renderer for `git diff` requests.
+the one-time renderer for `git diff` requests. May be irrelevant as there is
+a `git mergetool` wrapper (as I found later), but this one is still shorter ;)
 
 * `git-branch-alias` -- a recent addition, and not mine to start with (kudos
 go to Phil Sainty), this Git extension allows to reference branches by another
