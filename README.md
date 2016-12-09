@@ -29,6 +29,12 @@ merged into a common upstream and are no longer needed separately.
 (can be customized by setting `DIFFVIEWER` envvar in e.g. user profile) as
 the one-time renderer for `git diff` requests.
 
+* `git-branch-alias` -- a recent addition, and not mine to start with (kudos
+go to Phil Sainty), this Git extension allows to reference branches by another
+name. Think of all tools and habits that expect a `master` branch and hiccup
+on an `oi/hipster` ;) I took Phil's script from his StackOverflow post and
+just added links to his posts and a `bash` shebang.
+
 As with any other Git methods, it suffices that these scripts are available in
 your `PATH` (e.g. in `$USER/bin`, or symlinked to `/usr/bin`, etc.) and then
 they can be called as `git method-name`, such as `git zclone ws1 /tmp/buildws`.
