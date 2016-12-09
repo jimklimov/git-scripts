@@ -8,6 +8,11 @@ attempts a fast-forward merge of the current workspace with its counterparts.
 remote repos (except `upstream`), then does a `git pull-ff` to receive any
 missing updates from the remotes.
 
+* `git-merge-um` -- this script pulls updates from remote repos and tries to
+merge the remote `upstream/master` (configurable) int the current workspace
+branch, and optionally tries to rebase the workspace over the `upstream/master`
+state.
+
 * `git-zclone` -- uses ZFS to clone a dataset which contains a Git repository,
 then rewrites some metadata in the new clone (reference to `origin`, NetBeans
 project metadata, etc.) In effect this should yield similar results to local
