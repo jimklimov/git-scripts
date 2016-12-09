@@ -13,7 +13,13 @@ then rewrites some metadata in the new clone (reference to `origin`, NetBeans
 project metadata, etc.) In effect this should yield similar results to local
 filesystem-based `git clone`, except that with ZFS cloning, anything present
 in the workspace dataset is cloned (such as old build products) unless you
-add `--wipe -f` to the command-line.
+add `--wipe -f` to the command-line. You can also automatically link to the
+chosen `upstream` repo during initial cloning of your `origin`, following the
+github-fork-clone model to get a workspace. I use this a lot lately, so the
+typical command-line for such activity is, for reference, simply this:
+````
+:; git zclone https://github.com/user/repo.git "" -U https://github.com/project/repo.git
+````
 
 * `git-branchkill` -- helps clean up local workspaces (that share an upstream)
 from proliferation of development branches, especially as those are getting
