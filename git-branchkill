@@ -60,17 +60,21 @@ done
 [ $# = 0 ] && echo "Error: branch name(s) required" >&2 && return 1
 
 ### List of failed-to-kill objects:
-### "[MRL](RESCODE)\tPATH\tBRANCH\tREASON"
+### "[MRLP](RESCODE)\tPATH\tBRANCH\tREASON"
 FAILED=""
 
 branchkill() {
     CURBRANCH="`git branch | egrep '^\* ' | sed 's,^\* ,,'`" || return
     [ -n "$CURBRANCH" ] || return
+    echo "=== `date`: Currently checked out branch is '$CURBRANCH'"
 
     REMOTES="`git remote -v | egrep 'push' | awk '{print $1}'`" || REMOTES=""
+    echo "=== `date`: Known remote repos are: `echo "$REMOTES" | tr '\n' ' '`"
 
     RES=0
     for B in "$@" ; do
+        echo ""
+        echo "=== `date`: Processing a branch named '$B'"
         if [ "$B" = "$CURBRANCH" -o "$B" = master ] ; then
             echo "Error: can not remove master branch, or current branch: '$B'" \
                 "(please change into some other)" >&2
