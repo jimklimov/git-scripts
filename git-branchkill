@@ -4,6 +4,7 @@
 ### branch and its trackers.
 ### Script Copyright (C) 2015 by Jim Klimov, License: MIT
 
+git_branch_kill() {
 EXEC=""
 LOCALKILL=-d
 REPODIRS=""
@@ -22,7 +23,7 @@ while [ $# -gt 0 ]; do
         echo "          (e.g. from a shell glob or Midnight Commander substitution);"
         echo "          if no '-R ...' is specified, script works in current dir"
         echo "  branch(es)      List one or more branch name(s) to remove"
-        exit 0
+        return 0
         ;;
     -n) EXEC=echo
         echo "Info: Running in read-only mode, no branches should get cut" >&2
@@ -44,22 +45,22 @@ while [ $# -gt 0 ]; do
             shift 2
         else
             echo "Error: Repo dir '$2' specified but not found" >&2
-            exit 1
+            return 1
         fi
         ;;
     *) break ;; # fall through with branch names
     esac
 done
 
-[ $# = 0 ] && echo "Error: branch name(s) required" >&2 && exit 1
+[ $# = 0 ] && echo "Error: branch name(s) required" >&2 && return 1
 
 ### List of failed-to-kill objects:
 ### "[MRL](RESCODE)\tPATH\tBRANCH\tREASON"
 FAILED=""
 
 branchkill() {
-    CURBRANCH="`git branch | egrep '^\* ' | sed 's,^\* ,,'`" || exit
-    [ -n "$CURBRANCH" ] || exit
+    CURBRANCH="`git branch | egrep '^\* ' | sed 's,^\* ,,'`" || return
+    [ -n "$CURBRANCH" ] || return
 
     REMOTES="`git remote -v | egrep 'push' | awk '{print $1}'`" || REMOTES=""
 
@@ -134,4 +135,7 @@ fi
     echo "List of failed items: $FAILED"
     # First line is empty by construction process
 
-exit $RRES
+return $RRES
+}
+
+git_branch_kill "$@"

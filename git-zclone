@@ -28,6 +28,7 @@
 ### Copyright (C) 2013-2016 by Jim Klimov <jim@jimklimov.com>, License: MIT
 ###     https://github.com/jimklimov/git-scripts
 
+do_git_zfs_clone() {
 PATH=/usr/gnu/bin:/usr/sfw/bin:/opt/sfw/bin:/opt/omniti/bin:/bin:\
 /sbin:/usr/sbin:$PATH
 LANG=C
@@ -76,14 +77,14 @@ EOH
 
 # Verify that we have a usable ZFS command
 zfs --help 2>&1 | egrep -i 'dataset|snapshot|clone|volume' >/dev/null || \
-	{ usage; echo "FATAL: No suitable 'zfs' command found!" >&2 && exit 2; }
+	{ usage; echo "FATAL: No suitable 'zfs' command found!" >&2 && return 2; }
 
 # Currently we accept at least two CLI parameters: FROM and DEST
 #[ $# -lt 2 -o -z "$1" -o -z "$2" ] && \
 #	echo "Required: FROM and DEST replica paths" >&2 && \
 #	echo " FROM must be a Git repo in a dedicated ZFS dataset, and" >&2 && \
 #	echo " DEST must not block ZFS mount (may be an empty directory)" >&2 && \
-#	exit 1
+#	return 1
 
 FROM="$1"
 ### Remove the original CLI parameters such as FROM and DEST
@@ -93,7 +94,7 @@ shift
 case "$FROM" in
 	-h|-help|--help)
 		usage
-		exit 0
+		return 0
 		;;
 	*://*|*@*:*)
 		# TODO: This misses the "alternative scp-like syntax"
@@ -106,20 +107,20 @@ case "$FROM" in
 		FROM_TYPE=LOCAL
 		# Other sanity checks
 		[ -z "$FROM" -o ! -d "$FROM" ] && \
-			echo "Required: FROM must exist as a directory" >&2 && exit 1
+			echo "Required: FROM must exist as a directory" >&2 && return 1
 		FROMPATH="`cd "$FROM" && pwd`" || FROMPATH=""
 		[ -z "$FROMPATH" ] && \
-			echo "Required: FROM must exist as a directory" >&2 && exit 1
+			echo "Required: FROM must exist as a directory" >&2 && return 1
 		[ ! -d "$FROM/.git" ] && \
-			echo "Required: FROM must be a Git repository" >&2 && exit 1
+			echo "Required: FROM must be a Git repository" >&2 && return 1
 		[ ! -d "$FROM/.zfs/snapshot" ] && \
-			echo "Required: FROM must be a ZFS POSIX dataset" >&2 && exit 1
+			echo "Required: FROM must be a ZFS POSIX dataset" >&2 && return 1
 
 		FROMDS="`cd "$FROMPATH" && df -k . | grep / | head -1 | awk '{print $1}'`" || \
 			FROMDS=""
 		[ -z "$FROMDS" ] && \
 			echo "Required: FROM must be a mounted ZFS POSIX dataset" >&2 && \
-			exit 1
+			return 1
 
 		# Validate both ZFS command and FROM dataset name
 		echo "=== FROM dataset:"
@@ -128,7 +129,7 @@ case "$FROM" in
 			"$FROMDS"
 		[ $? != 0 ] && \
 			echo "FATAL: Couldn't use ZFS to review dataset properties" >&2 && \
-			exit 1
+			return 1
 		;;
 esac
 
@@ -154,21 +155,21 @@ if [ -n "$DEST" ] && [ -e "$DEST" ]; then
 fi
 [ x"$BAD" = xyes ] && \
 	echo "Required: DEST must not exist as a non-empty directory" >&2 && \
-	exit 1
+	return 1
 
 ### Process optional further CLI parameters
 while [ $# -gt 0 ]; do
 	case "$1" in
 		-h|-help|--help)
 			usage
-			exit 0
+			return 0
 			;;
 		-b|--branch)
 			CHECKOUT_BRANCH="$2"
 			shift ;;
 		-B|--new-branch)
 			### Note: if the named branch exists, it is just checked out and no
-			### error propagates into the exit-code (that we couldn't create it)
+			### error propagates into the return-code (that we couldn't create it)
 			CREATE_BRANCH_FLAG="-b"
 			CHECKOUT_BRANCH="$2"
 			shift ;;
@@ -183,11 +184,11 @@ while [ $# -gt 0 ]; do
 		-NR|--no-rewrite-origin) REWRITE_ORIGIN=no ;;
 		--wipe) case "$2" in
 				-n|-f|-i) WIPE_WORKSPACE="$2"; shift ;;
-				*) echo "FATAL: git-zclone: Unknown argument to --wipe: '$2'" >&2; exit 1 ;;
+				*) echo "FATAL: git-zclone: Unknown argument to --wipe: '$2'" >&2; return 1 ;;
 			esac
 			;;
 		*) echo "FATAL: git-zclone currently does not support parameter '$1'" >&2
-			exit 1
+			return 1
 			;;
 	esac
 	shift
@@ -202,16 +203,16 @@ TS="initialClone"
 if [ x"$FROM_TYPE" = xLOCAL ]; then
 	TS="`date -u '+%Y%m%dT%H%M%SZ'`" || TS=""
 	[ -z "$TS" ] && \
-		echo "FATAL: Can't determine current timestamp" >&2 && exit 1
+		echo "FATAL: Can't determine current timestamp" >&2 && return 1
 fi
 
 # Prerequisites seem good, begin non-readonly activity...
 [ -d "$DEST" ] || mkdir -p "$DEST"
 [ $? != 0 ] && \
-	echo "FATAL: Couldn't create the paths up to DEST" >&2 && exit 1
+	echo "FATAL: Couldn't create the paths up to DEST" >&2 && return 1
 DESTPATH="`cd "$DEST" && pwd`" || DESTPATH=""
 [ -z "$DESTPATH" ] && \
-	echo "FATAL: Couldn't change the path into DEST" >&2 && exit 1
+	echo "FATAL: Couldn't change the path into DEST" >&2 && return 1
 
 # Determine the dataset that will hold the new repo and its mountpoint
 DESTDS=""
@@ -250,7 +251,7 @@ if [ -z "$DESTDS" ]; then
 		/*|*:*|swap|"")	# Local non-ZFS path or an NFS mount
 			echo "FATAL: The container backing store DESTDS='$DESTDS' does not seem like a local ZFS dataset!" >&2
 			echo "Try:   git clone '$FROM' '$DEST'" >&2
-			exit 1
+			return 1
 			;;
 		esac
 		;;
@@ -262,14 +263,14 @@ case "$FROM_TYPE" in
 		# Validate both ZFS command and DEST dataset name
 		zfs list -o name "$DESTDS" >/dev/null 2>&1 && \
 			echo "FATAL: DEST ZFS dataset $DESTDS already exists?" \
-			     "Can't clone into it!" >&2 && exit 2
+			     "Can't clone into it!" >&2 && return 2
 
 		echo "=== Cloning from '$FROMDS@git-auto-snap-clone-$TS'" \
 		     "to '$DESTDS' (mountpoint=$DESTMPT)..."
 
 		zfs snapshot -r "$FROMDS@git-auto-snap-clone-$TS" || \
 		{ RES=$?; echo "FATAL: Could not snapshot the dataset" \
-			"'$FROMDS@git-auto-snap-clone-$TS'" >&2; exit $RES; }
+			"'$FROMDS@git-auto-snap-clone-$TS'" >&2; return $RES; }
 
 		zfs clone -p -o mountpoint=none \
 			"$FROMDS@git-auto-snap-clone-$TS" "$DESTDS" || \
@@ -288,7 +289,7 @@ case "$FROM_TYPE" in
 		  zfs allow "$FROMDS"
 		  echo ""
 		  echo "FATAL: Dataset cloning FAILED"
-		  exit $RES; } >&2
+		  return $RES; } >&2
 
 		echo "=== Trying to carry over some properties of the source dataset..."
 		EXCLUDE_ATTRS='canmount|mountpoint'
@@ -310,12 +311,12 @@ case "$FROM_TYPE" in
 			  echo "Please make sure that dataset name is valid and that proper 'zfs allow'"
 			  echo "permissions were set on destination container dataset, e.g. at least:"
 			  echo "  sudo zfs allow -ldu $USER clone,create,destroy,diff,mount,promote,rollback,snapshot,share,sharenfs,sharesmb,canmount,mountpoint `dirname $DESTDS`"
-			  exit $RES; } >&2
+			  return $RES; } >&2
 		fi
 		;;
 	*)
 		echo "FATAL: Unimplemented FROM_TYPE='$FROM_TYPE'!" >&2
-		exit 3
+		return 3
 		;;
 esac
 
@@ -327,7 +328,7 @@ else
 fi
 [ $RES != 0 ] && \
 	echo "FATAL: Could not set '$DESTDS' mountpoint='$DESTMPT'" >&2 && \
-	exit $RES
+	return $RES
 
 echo "=== DEST dataset stats:"
 zfs list -o \
@@ -335,7 +336,7 @@ zfs list -o \
 	"$DESTDS"
 [ $? != 0 ] && \
 	echo "FATAL: Couldn't use ZFS to review dataset properties" >&2 && \
-	exit 1
+	return 1
 
 echo ""
 echo "=== Review ZFS ALLOW settings:"
@@ -362,7 +363,7 @@ case "$FROM_TYPE" in
 			  git remote add origin "$ORIGIN" && \
 			  echo "===== Refresh Git tracking of origin..." && \
 			  git pull --all; } ) || \
-			{ RES=$?; echo "FATAL: Could not set Git origin URL"; exit $RES; } >&2
+			{ RES=$?; echo "FATAL: Could not set Git origin URL"; return $RES; } >&2
 			### This was fatal because maybe "git" or "cd" failed, or something?
 		else
 			echo "NOTE: as requested, I did not mangle git origin for the local clone"
@@ -373,7 +374,7 @@ case "$FROM_TYPE" in
 		cd "$DESTPATH" && git clone "$FROM" . || \
 		{ RES=$?
 		  echo "FATAL: Could not clone remote Git repo '$FROM' to local dataset '$DESTDS' mounted at '$DESTPATH'"
-		  exit $RES; } >&2
+		  return $RES; } >&2
 		;;
 esac
 
@@ -390,11 +391,11 @@ if [ -n "$REMOTE_UPSTREAM" ]; then
 	  git remote add upstream "$REMOTE_UPSTREAM" && \
 	  if [ x"$REMOTE_UPSTREAM_CANPUSH" = xno ]; then
 	    echo "===== Disabling ability to Git push into the upstream..."
-	    git remote set-url --push upstream "no_push" || exit
+	    git remote set-url --push upstream "no_push" || return
 	  else : ; fi && \
 	  echo "===== Refresh Git tracking of upstream..." && \
 	  git pull --all; } ) || \
-	{ RES=$?; echo "FATAL: Could not set Git upstream URL and/or pull it"; exit $RES; } >&2
+	{ RES=$?; echo "FATAL: Could not set Git upstream URL and/or pull it"; return $RES; } >&2
 	### This was fatal because maybe "git" or "cd" failed, or something?
 fi
 
@@ -472,4 +473,7 @@ if [ "$RES" != 0 ]; then
 		"and reported above" >&2
 fi
 
-exit $RES
+return $RES
+}
+
+do_git_zfs_clone "$@"

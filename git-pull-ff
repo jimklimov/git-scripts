@@ -12,7 +12,7 @@ LANG=C
 LC_ALL=C
 export PATH LANG LC_ALL
 
-git_pull-ff() {
+git_pull_ff() {
 
 currentbranchref="$(git symbolic-ref HEAD 2>&-)"
 currentbranch="`git branch | grep '^* ' | sed 's,^* ,,'`" || \
@@ -114,5 +114,5 @@ git pull
     mkdir "$repodir/.zfs/snapshot/git-pull-ff--$TS--Z--afterSync" || true
 }
 
-git_pull-ff
+git_pull_ff
 

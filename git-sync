@@ -9,6 +9,7 @@
 ### the remote repositories, and so the local sources are most up-to-date.
 ### Copyright (C) 2014-2016 by Jim Klimov, License: MIT
 
+do_git_sync() {
 echo "=== Syncing from repo `pwd` branch `git branch | egrep '^\*' | sed 's,^\* ,,'` to known remotes..."
 for R in "" \
 	`git remote -v | egrep 'push' | awk '{print $1}' | grep -v upstream` \
@@ -21,4 +22,6 @@ done
 
 echo "=== Pulling fast-forward from remotes ..."
 git pull-ff
+}
 
+do_git_sync "$@"

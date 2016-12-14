@@ -61,10 +61,11 @@
 # expansion "$@" is changed to "$ <at>"), so don't try to use this copy:
 # http://permalink.gmane.org/gmane.comp.version-control.git/247581
 
+git_branch_alias() {
 #cwd=$(git rev-parse --show-toplevel)
 git=$(git rev-parse --git-dir)
 if [ $? -ne 0 ]; then
-    exit 1
+    return 1
 fi
 
 command=$(basename $0)
@@ -129,7 +130,7 @@ if [ -n "${shorthelp}" ]; then
 For help, use: ${command} -h
 
 EOF
-    exit 0
+    return 0
 fi
 
 if [ -n "${help}" ]; then
@@ -169,7 +170,7 @@ this situation by first switching HEAD to <alias>'s target branch
 if HEAD was currently set to <alias>.
 
 EOF
-    exit 0
+    return 0
 fi
 
 # Use the current branch by default.
@@ -177,7 +178,7 @@ if [ -z "${branch}" ]; then
     branch=$(git symbolic-ref -q HEAD)
     if [ $? -ne 0 ]; then
         stderr "Could not establish current HEAD."
-        exit 1
+        return 1
     fi
 fi
 
@@ -191,13 +192,13 @@ symref=${symref##refs/heads/}
 if [ -n "${delete}" ]; then
     if [ ! -f "${git}/refs/heads/${symref}" ]; then
         stderr "Symbolic reference refs/heads/${symref} does not exist."
-        exit 1
+        return 1
     fi
 
     # Verify that it IS a symbolic reference
     if ! git symbolic-ref "refs/heads/${symref}" >/dev/null; then
         stderr "Error validating refs/heads/${symref} as symbolic reference."
-        exit 1
+        return 1
     fi
 
     # If we currently have <symref> checked out, deleting it is bad
@@ -210,7 +211,7 @@ if [ -n "${delete}" ]; then
         branch=$(git symbolic-ref -q HEAD)
         if [ $? -ne 0 ]; then
             stderr "Could not establish current HEAD."
-            exit 1
+            return 1
         fi
         stdout "Switching HEAD to target branch ${branch}"
         # By using git symbolic-ref HEAD to find the target ref
@@ -219,7 +220,7 @@ if [ -n "${delete}" ]; then
         if ! git symbolic-ref HEAD "${branch}"; then
             stderr "Error updating HEAD from ${symref} to ${branch}"
             stderr "Aborting."
-            exit 1
+            return 1
         fi
     fi
 
@@ -229,7 +230,7 @@ if [ -n "${delete}" ]; then
     # the backwards-compatible command.
     stdout "Deleting symbolic reference refs/heads/${symref}"
     git update-ref -d --no-deref "refs/heads/${symref}"
-    exit $?
+    return $?
 fi
 
 # Creating a new symbolic reference.
@@ -239,7 +240,7 @@ fi
 # the wrong way around (treating it like ln -s is a really bad idea).
 if [ ! -f "${git}/refs/heads/${branch}" ]; then
     stderr "Target refs/heads/${branch} does not exist."
-    exit 1
+    return 1
 fi
 if [ -f "${git}/refs/heads/${symref}" ]; then
     target=$(git symbolic-ref "refs/heads/${symref}")
@@ -251,12 +252,12 @@ if [ -f "${git}/refs/heads/${symref}" ]; then
         stderr "File refs/heads/${symref} already exists"
         stderr "(and is not a symbolic reference!)"
     fi
-    exit 1
+    return 1
 fi
 if git show-ref --verify --heads --quiet "refs/heads/${symref}"; then
     # n.b. I'm pretty sure this is unreachable, given the previous block.
     stderr "refs/heads/${symref} is a valid reference without a file!?"
-    exit 1
+    return 1
 fi
 
 # The parameters are good.
@@ -266,6 +267,8 @@ if git symbolic-ref "refs/heads/${symref}" "refs/heads/${branch}"; then
     stdout "  ${symref} -> ${target##refs/heads/}"
 else
     stderr "Failed to create branch alias."
-    exit 1
+    return 1
 fi
+}
 
+git_branch_alias "$@"

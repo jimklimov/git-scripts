@@ -15,6 +15,7 @@
 ### depends on "--set-upstream-to" configuration of your branch).
 ### Copyright (C) 2015-2016 by Jim Klimov, License: MIT
 
+do_git_merge_update_master() {
 BASE_REPO=upstream
 BASE_BRANCH=master
 DO_REBASE=no
@@ -48,3 +49,6 @@ fi
 echo ""
 echo "=== Pushing the changes back..."
 git sync
+}
+
+do_git_merge_update_master "$@"
