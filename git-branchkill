@@ -18,7 +18,7 @@ export LANG LC_ALL
 while [ $# -gt 0 ]; do
     case "$1" in
     -h|--help)
-        echo "Usage: $0 [-n] [-D] [-R 'repodir ...'] branchname(s)..."
+        echo "Usage: $0 [-n] [-D] [-DD] [-R 'repodir ...'] branchname(s)..."
         echo "Removes local branches and remote references to branches, so as to"
         echo "help clean up after a branch has been merged and is no longer used"
         echo "  -n      Read-only mode to see what might be done"
