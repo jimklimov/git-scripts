@@ -72,14 +72,14 @@ branchkill() {
     RES=0
     for B in "$@" ; do
         if [ "$B" = "$CURBRANCH" -o "$B" = master ] ; then
-            echo "Error: can not remove master branch, or current branch $B" \
+            echo "Error: can not remove master branch, or current branch: '$B'" \
                 "(please change into some other)" >&2
             RES=2
             FAILED="$FAILED
 M($RES)	`pwd`	$B	master branch, or current branch"
         else
             for R in $REMOTES ; do
-                echo "Info: Removing remote branch $R/$B ..."
+                echo "Info: Removing local reference to remote branch: '$R/$B' ..."
                 _OUT="`$EXEC git branch -dr "$R/$B" 2>&1`"
                 _RES=$?
                 if echo "$_OUT" | egrep " branch '.*' not found" >/dev/null && [ "$_RES" != 0 ]; then
@@ -92,7 +92,7 @@ R($RES)	`pwd`	$B	`echo ${_OUT} | tr '\n' ' '`"
                 echo "$_OUT"
             done
 
-            echo "Info: Removing local branch $B ..."
+            echo "Info: Removing local branch: '$B' ..."
             _OUT="`$EXEC git branch $LOCALKILL "$B" 2>&1`"
             _RES=$?
             if echo "$_OUT" | egrep " branch '.*' not found" >/dev/null && [ "$_RES" != 0 ]; then
