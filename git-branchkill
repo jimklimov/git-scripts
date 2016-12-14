@@ -10,6 +10,9 @@ LOCALKILL=-d
 REMOTEKILL=no
 REPODIRS=""
 
+BASE_REPO=upstream
+BASE_BRANCH=master
+
 # We do parse some outputs, so keep it single-language
 LANG=C
 LC_ALL=C
@@ -18,17 +21,21 @@ export LANG LC_ALL
 while [ $# -gt 0 ]; do
     case "$1" in
     -h|--help)
-        echo "Usage: $0 [-n] [-D] [-DD] [-R 'repodir ...'] branchname(s)..."
+        echo "Usage: $0 [-n] [-D] [-DD|-DDD] [-R 'repodir ...'] branchname(s)..."
         echo "Removes local branches and remote references to branches, so as to"
         echo "help clean up after a branch has been merged and is no longer used"
         echo "  -n      Read-only mode to see what might be done"
         echo "  -D      Allow destruction of un-merged local branches"
         echo "  -DD     Cause the remote repo(s) to forget named branch(es)"
-        echo "  -R 'dirs...'      List one or more local repositories (directories)"
+        echo "  -DDD    ONLY cause the remote repo(s) to forget named branch(es)"
+        echo "          (do not remove local branches and/or references)"
+        echo "  -R 'dirs...'    List one or more local repositories (directories)"
         echo "          to act upon; the parameter may be specified more than once,"
         echo "          and its argument may be a space-separated list of directories"
         echo "          (e.g. from a shell glob or Midnight Commander substitution);"
         echo "          if no '-R ...' is specified, script works in current dir"
+        echo "  -BR 'repo'      Change the untouchable base repo (default: ${BASE_REPO})"
+        echo "  -BB 'branch'    Change the untouchable base branch (default: ${BASE_BRANCH})"
         echo "  branch(es)      List one or more branch name(s) to remove"
         return 0
         ;;
@@ -44,6 +51,13 @@ while [ $# -gt 0 ]; do
         echo "Info: Pushing destruction of named branches to remotes!" >&2
         shift 1
         ;;
+    -DDD) REMOTEKILL=yes
+          LOCALKILL=""
+        echo "Info: ONLY pushing destruction of named branches to remotes!" >&2
+        shift 1
+        ;;
+    -BR) BASE_REPO="$2"; shift ;;
+    -BB) BASE_BRANCH="$2"; shift ;;
     -R) if [ -n "$2" ] ; then
         for D in $2 ; do
         if [ -d "$D" ]; then
@@ -75,19 +89,25 @@ branchkill() {
     echo "=== `date`: Currently checked out branch is '$CURBRANCH'"
 
     REMOTES="`git remote -v | egrep 'push' | awk '{print $1}'`" || REMOTES=""
-    echo "=== `date`: Known remote repos are: `echo "$REMOTES" | tr '\n' ' '`"
+    if [ -n "$REMOTES" ] ; then
+        echo "=== `date`: Known remote repos are: `echo "$REMOTES" | tr '\n' ' '`"
+    else
+        echo "=== `date`: WARNING: No remote repos are known; will only process local branches"
+    fi
 
     RES=0
+    [ -n "$LOCALKILL" ] && \
     for B in "$@" ; do
         echo ""
         echo "=== `date`: Processing a branch named '$B'"
-        if [ "$B" = "$CURBRANCH" -o "$B" = master ] ; then
-            echo "Error: can not remove master branch, or current branch: '$B'" \
+        if [ "$B" = "$CURBRANCH" -o "$B" = "${BASE_BRANCH}" ] ; then
+            echo "Error: can not remove master branch '${BASE_BRANCH}', or current branch: '$B'" \
                 "(please change into some other)" >&2
             RES=2
             FAILED="$FAILED
 M($RES)	`pwd`	$B	master branch, or current branch"
         else
+            [ -n "$REMOTES" ] && \
             for R in $REMOTES ; do
                 echo "Info: Removing local reference to remote branch: '$R/$B' ..."
                 _OUT="`$EXEC git branch -dr "$R/$B" 2>&1`"
@@ -118,22 +138,34 @@ L($RES)	`pwd`	$B	`echo ${_OUT} | tr '\n' ' '`"
         # Note that you may (try to) remove any branch on a remote server,
         # including your current one or a master one (not all git workflows
         # even use a "master" or assign a special meaning to it).
+        [ -n "$REMOTES" ] && \
         if [ "$REMOTEKILL" = yes ]; then
-            for R in $REMOTES ; do
-                echo "Info: Removing the branch '$B' in remote repo '$R' ..."
-                _OUT="`$EXEC git push "$R" ":$B" 2>&1`"
-                _RES=$?
-                if [ "$_RES" = 0 ] || \
-                   echo "$_OUT" | egrep " does not appear to be a git repository|remote ref does not exist|Please make sure you have the correct access rights" >/dev/null \
-                ; then
-                    echo "OK, now OTHER clones of this remote repo should 'git fetch --all --prune'"
-                else
-                    RES=$_RES
-                    [ "$_RES" != 0 ] && FAILED="$FAILED
+            if [ "$B" = "${BASE_BRANCH}" ] ; then
+                echo "Error: can not remove master branch '${BASE_BRANCH}'" >&2
+                RES=2
+                FAILED="$FAILED
+P($RES)	`pwd`	$B	master branch"
+            else
+                for R in $REMOTES ; do
+                    if [ "$R" = "${BASE_REPO}" ]; then
+                        echo "WARNING: Not removing branches in upstream repo: '$R/$B' ..." >&2
+                        continue
+                    fi
+                    echo "Info: Removing the branch '$B' in remote repo '$R' ..."
+                    _OUT="`$EXEC git push "$R" ":$B" 2>&1`"
+                    _RES=$?
+                    if [ "$_RES" = 0 ] || \
+                       echo "$_OUT" | egrep " does not appear to be a git repository|remote ref does not exist|Please make sure you have the correct access rights" >/dev/null \
+                    ; then
+                        echo "OK, now OTHER clones of this remote repo should 'git fetch --all --prune'"
+                    else
+                        RES=$_RES
+                        [ "$_RES" != 0 ] && FAILED="$FAILED
 P($RES)	`pwd`	$B	`echo ${_OUT} | tr '\n' ' '`"
-                fi
-                echo "$_OUT"
-            done
+                    fi
+                    echo "$_OUT"
+                done
+            fi
         fi
     done
 
