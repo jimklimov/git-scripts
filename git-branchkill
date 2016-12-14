@@ -9,6 +9,11 @@ EXEC=""
 LOCALKILL=-d
 REPODIRS=""
 
+# We do parse some outputs, so keep it single-language
+LANG=C
+LC_ALL=C
+export LANG LC_ALL
+
 while [ $# -gt 0 ]; do
     case "$1" in
     -h|--help)
