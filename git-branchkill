@@ -7,6 +7,7 @@
 git_branch_kill() {
 EXEC=""
 LOCALKILL=-d
+REMOTEKILL=no
 REPODIRS=""
 
 # We do parse some outputs, so keep it single-language
@@ -22,6 +23,7 @@ while [ $# -gt 0 ]; do
         echo "help clean up after a branch has been merged and is no longer used"
         echo "  -n      Read-only mode to see what might be done"
         echo "  -D      Allow destruction of un-merged local branches"
+        echo "  -DD     Cause the remote repo(s) to forget named branch(es)"
         echo "  -R 'dirs...'      List one or more local repositories (directories)"
         echo "          to act upon; the parameter may be specified more than once,"
         echo "          and its argument may be a space-separated list of directories"
@@ -36,6 +38,10 @@ while [ $# -gt 0 ]; do
         ;;
     -D) LOCALKILL=-D
         echo "Info: Allowing destruction of un-merged local branches!" >&2
+        shift 1
+        ;;
+    -DD) REMOTEKILL=yes
+        echo "Info: Pushing destruction of named branches to remotes!" >&2
         shift 1
         ;;
     -R) if [ -n "$2" ] ; then
@@ -107,6 +113,27 @@ R($RES)	`pwd`	$B	`echo ${_OUT} | tr '\n' ' '`"
 L($RES)	`pwd`	$B	`echo ${_OUT} | tr '\n' ' '`"
             fi
             echo "$_OUT"
+        fi
+
+        # Note that you may (try to) remove any branch on a remote server,
+        # including your current one or a master one (not all git workflows
+        # even use a "master" or assign a special meaning to it).
+        if [ "$REMOTEKILL" = yes ]; then
+            for R in $REMOTES ; do
+                echo "Info: Removing the branch '$B' in remote repo '$R' ..."
+                _OUT="`$EXEC git push "$R" ":$B" 2>&1`"
+                _RES=$?
+                if [ "$_RES" = 0 ] || \
+                   echo "$_OUT" | egrep " does not appear to be a git repository|remote ref does not exist|Please make sure you have the correct access rights" >/dev/null \
+                ; then
+                    echo "OK, now OTHER clones of this remote repo should 'git fetch --all --prune'"
+                else
+                    RES=$_RES
+                    [ "$_RES" != 0 ] && FAILED="$FAILED
+P($RES)	`pwd`	$B	`echo ${_OUT} | tr '\n' ' '`"
+                fi
+                echo "$_OUT"
+            done
         fi
     done
 
