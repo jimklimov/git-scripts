@@ -29,6 +29,11 @@ repodir="$(git rev-parse --show-toplevel)" && \
 
 #git pull $currentbranch
 #git pull --tags $currentbranch
+
+### Remove local branches deleted remotely
+### TODO : not by default, add an option/envvar to enable this
+#git fetch --all --prune
+
 git pull --all
 git pull --all --recurse-submodules=yes
 git fetch --tags

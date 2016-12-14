@@ -157,7 +157,7 @@ P($RES)	`pwd`	$B	master branch"
                     if [ "$_RES" = 0 ] || \
                        echo "$_OUT" | egrep " does not appear to be a git repository|remote ref does not exist|Please make sure you have the correct access rights" >/dev/null \
                     ; then
-                        echo "OK, now OTHER clones of this remote repo should 'git fetch --all --prune'"
+                        echo "OK, now OTHER clones of this remote repo should 'git fetch --all --prune' (so they do not re-push branch '$B' - unless this is desired)"
                     else
                         RES=$_RES
                         [ "$_RES" != 0 ] && FAILED="$FAILED
