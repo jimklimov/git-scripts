@@ -22,8 +22,8 @@ DO_REBASE=no
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        -R) BASE_REPO="$2"; shift ;;
-        -B) BASE_BRANCH="$2"; shift ;;
+        -BR) BASE_REPO="$2"; shift ;;
+        -BB) BASE_BRANCH="$2"; shift ;;
         -r) DO_REBASE=yes ;;
         *) echo "FATAL: Unknown argument: '$1'" >&2; return 1 ;;
     esac
