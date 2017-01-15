@@ -45,5 +45,14 @@ As with any other Git methods, it suffices that these scripts are available in
 your `PATH` (e.g. in `$USER/bin`, or symlinked to `/usr/bin`, etc.) and then
 they can be called as `git method-name`, such as `git zclone ws1 /tmp/buildws`.
 
+* The `_Jenkinsfile-check.sh` is an odd addition to the bunch: it is not (yet)
+a git method. This script allows to validate a `Jenkinsfile` that can automate
+your CI pipelines (instructions stored and tracked as code, rather than results
+of GUI clicks). It has an option however to "bump" the successfully passed file
+by committing it into the git repository, so (after a push) it will be used to
+drive actual builds and tests. This requires Jenkins REST API to to the actual
+tests, and the credentials to access the CI application server instance can be
+stored in a config file.
+
 Hope this helps,
 Jim Klimov
