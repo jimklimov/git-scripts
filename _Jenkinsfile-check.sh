@@ -45,11 +45,16 @@ default_request() {
 }
 
 normalize_errors() {
-    do_request 2>/dev/null | "$JSONSH" -x '"data","errors",0,"error",[0-9]+' | grep '"data","errors",0,"error",'
+    OUT="`do_request 2>/dev/null`"
+    echo "$OUT" | "$JSONSH" -x '"data","errors",0,"error",[0-9]+' | grep '"data","errors",0,"error",'
     if [ $? = 0 ]; then
         return 1
     else
         # grepped no errors
+        echo "$OUT" | "$JSONSH" -x '"data","errors",0,"error"' | grep '"data","errors",0,"error"'
+        if [ $? = 0 ]; then
+            return 1
+        fi
         return 0
     fi
 }
