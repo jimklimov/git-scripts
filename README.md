@@ -41,6 +41,11 @@ name. Think of all tools and habits that expect a `master` branch and hiccup
 on an `oi/hipster` ;) I took Phil's script from his StackOverflow post and
 just added links to his posts and a `bash` shebang.
 
+* `git-dig-history` -- this allows to search and even rewrite the git repo
+history, looking for a specified PATTERN. Use-cases include replacement of
+sensitive data (e.g. avoid password leaking when a project gets opensourced)
+and looking for commits related to a keyword you are trying to track down.
+
 As with any other Git methods, it suffices that these scripts are available in
 your `PATH` (e.g. in `$USER/bin`, or symlinked to `/usr/bin`, etc.) and then
 they can be called as `git method-name`, such as `git zclone ws1 /tmp/buildws`.

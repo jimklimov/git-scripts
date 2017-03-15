@@ -1,0 +1,117 @@
+#! /bin/sh
+
+### Copyright (C) 2017 by Jim Klimov
+
+usage() {
+    cat << EOF
+You can call this script as
+    $0 find_commits_contains [PATTERN]
+    $0 find_commits_intro [PATTERN]
+    $0 fix_history [PATTERN] [REPLACEMENT]
+
+Note that PATTERN and REPLACEMENT are fixed strings (not regexes) in this context
+For the SED usage there is also a PATTERN_SED that you can optionally export
+EOF
+}
+
+[ -n "${PATTERN-}" ] || PATTERN="needle"
+[ -n "${REPLACEMENT-}" ] || REPLACEMENT="@CUSTOM_NEEDLE@"
+### This script runs from the basedir of a git repo (or a few)
+### Logs and other work files are commonly stored in the parent dir by default
+[ -n "${LOGDIR-}" ] || LOGDIR="`pwd`/.."
+[ -n "${LOGTAG-}" ] || LOGTAG="$(basename `pwd`)"
+
+find_commits_contains() {
+    ### This lists which "$COMMITID:$PATHNAME:$LINETEXT" contain the PATTERN in the LINETEXT
+    ### Note that this lists all commits whose checked-out workspace would have the pattern
+    [ -n "${WORKSPACE_MATCHES_FILE-}" ] || WORKSPACE_MATCHES_FILE="${LOGDIR}/gitdig_commits-workspace-contains__${LOGTAG}.txt"
+    git grep "${PATTERN}" $(git rev-list --all --remotes) \
+    | tee "${WORKSPACE_MATCHES_FILE}"
+}
+
+show_commits_color() {
+    ### This finds which commits dealt the pattern (whose diff adds or removes a line with it, or has it in context)
+    ### Note that this starts with a colorful depiction of first-pass diffs, for esthetic viewing pleasure
+    ### and is parsed including color markup by other tools below
+    git rev-list --all --remotes | \
+        while read CMT ; do ( \
+            git show --color --pretty='format:%b' "$CMT" | \
+            egrep "${PATTERN}" && echo "^^^ $CMT" \
+        ) ; done
+}
+
+find_commits_intro() {
+    ### This finds which commits INTRODUCE the pattern (whose diff adds a line with it)
+    ### Note that this starts with a colorful depiction of first-pass diffs, for esthetic viewing pleasure
+    [ -n "${COMMIT_INTRODUCES_FILE-}" ] || COMMIT_INTRODUCES_FILE="${LOGDIR}/gitdig_commits-intro__${LOGTAG}.txt"
+    show_commits_color | tee "${COMMIT_INTRODUCES_FILE}".tmp
+
+    ### ...and this picks out the lines for commits which actually add the PATTERN
+    ### (because there are also not interesting context and removal lines as well,
+    ### which should disappear after the rebase)
+    echo "LIST OF COMMITS THAT INTRODUCE PATTERN (cached in ${COMMIT_INTRODUCES_FILE}.tmp) :"
+    cat "${COMMIT_INTRODUCES_FILE}".tmp | \
+    egrep '^([\^]|.*32m\+)' | \
+    ggrep -A1 '32m\+' | \
+    grep '^\^' \
+    | tee "${COMMIT_INTRODUCES_FILE}"
+}
+
+find_commits_drop() {
+    ### This finds which commits REMOVE the pattern (whose diff drops a line with it)
+    ### Note that this starts with a colorful depiction of first-pass diffs, for esthetic viewing pleasure
+    [ -n "${COMMIT_DROPS_FILE-}" ] || COMMIT_DROPS_FILE="${LOGDIR}/gitdig_commits-drop__${LOGTAG}.txt"
+    show_commits_color | tee "${COMMIT_DROPS_FILE}".tmp
+
+    ### ...and this picks out the lines for commits which actually add the PATTERN
+    ### (because there are also not interesting context and removal lines as well,
+    ### which should disappear after the rebase)
+    echo "LIST OF COMMITS THAT DROP THE PATTERN (cached in ${COMMIT_DROPS_FILE}.tmp) :"
+    cat "${COMMIT_DROPS_FILE}".tmp | \
+    egrep '^([\^]|.*31m\-)' | \
+    ggrep -A1 '31m\-' | \
+    grep '^\^' \
+    | tee "${COMMIT_DROPS_FILE}"
+}
+
+fix_history() {
+    ### When the inspections are done with, we want to clean up the history
+    ### Note that as part of this, we would drop "unreachable" commits that
+    ### are not part of any branch's history (because these would still contain
+    ### the original offending pattern.
+    ###
+    ### WARNING: This is the one destructive operation in this suite.
+    ###
+    ### You are advised to run it in a scratch full copy of your git repo.
+    ###
+    ### After it is successfully done, you are advised to destroy the published
+    ### copy of the repo completely (e.g. on github) and force-push the cleaned
+    ### one into a newly created instance of the repo, and have your team members
+    ### destroy and re-fork their clones both on cloud platform and their local
+    ### workspaces, so that the destroyed offending commits do not resurface.
+
+    ### Note that you can stack more sed '-e ...' blocks below, e.g. to rewrite
+    ### more patterns in one shot. Also note that the pattern and replacement
+    ### representation for simple grep and regex in sed may vary... you may want
+    ### to automate escaping of special chars.
+    [ -n "${PATTERN_SED-}" ] || PATTERN_SED="${PATTERN}"
+    git filter-branch --tree-filter "git grep '${PATTERN}' | sed 's,:.*\$,,' | sort | uniq | while read F ; do sed -e 's,${PATTERN_SED},${REPLACEMENT},g' -i '\$F'; done"
+    git reflog expire --expire-unreachable=now --all
+    git gc --prune=now
+}
+
+[ -n "$2" ] && PATTERN="$2"
+[ -n "$3" ] && REPLACEMENT="$3"
+
+ACTION=""
+case "$1" in
+    -h|--help) usage; exit 0 ;;
+    find|grep) ACTION="find_commits_intro"; shift ;;
+    show|diff) ACTION="find_commits_show"; shift ;;
+    drop|remove|del|delete) ACTION="find_commits_drop"; shift ;;
+    fix_history|find_commits_contains|find_commits_intro|find_commits_drop) ACTION="$1"; shift ;;
+    *) usage; exit 1 ;;
+esac
+
+echo "Running routine: '$ACTION'"
+"$ACTION"
