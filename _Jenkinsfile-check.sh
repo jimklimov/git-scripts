@@ -22,10 +22,14 @@ JENKINS_PASS="my%2Fpass"
 JENKINS_HOST="localhost"
 JENKINS_PORT="8080"
 JENKINS_ROOT="jenkins"
+
 # A copy of https://github.com/jimklimov/JSON.sh/blob/master/JSON.sh
+# is used for normalize_errors() aka "-j" argument
 # Note this has some needed differences from the upstream version!
 JSONSH=JSON.sh
-(which JSON.sh 2>/dev/null >/dev/null) && JSONSH="`which JSON.sh`"
+{ [ -x "`dirname $0`/JSON.sh" ] && JSONSH="`dirname $0`/JSON.sh"; } || \
+{ [ -x "./JSON.sh" ] && JSONSH="./JSON.sh"; } || \
+{ (which JSON.sh 2>/dev/null >/dev/null) && JSONSH="`which JSON.sh`" ; }
 
 [ -f "${HOME}/.jenkinsfile-check" ] && source "${HOME}/.jenkinsfile-check"
 [ -f .jenkinsfile-check ] && source .jenkinsfile-check
@@ -73,7 +77,7 @@ bump_git() {
 
 usage() {
     cat << EOF
-    -j      pipe listing of errors through json.sh
+    -j      pipe listing of errors through JSON.sh
     -b      if the report says syntax is OK, git-commit the bumped Jenkinsfile
     anything else for raw output
 EOF
