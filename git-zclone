@@ -25,7 +25,7 @@
 ### just the fresh repository.
 ### Also note that this did not yet intend to support cloning of bare repos.
 ###
-### Copyright (C) 2013-2017 by Jim Klimov <jim@jimklimov.com>, License: MIT
+### Copyright (C) 2013-2018 by Jim Klimov <jim@jimklimov.com>, License: MIT
 ###     https://github.com/jimklimov/git-scripts
 
 do_git_zfs_clone() {
@@ -118,9 +118,9 @@ case "$FROM" in
 
 		FROMDS="`cd "$FROMPATH" && /bin/df -k . | grep / | head -1 | awk '{print $1}'`" || \
 			FROMDS=""
-		[ -z "$FROMDS" ] && \
-			echo "Required: FROM must be a mounted ZFS POSIX dataset" >&2 && \
-			return 1
+		[ -n "$FROMDS" ] && [ "$FROMDS" != '-' ] || \
+			{ echo "Required: FROM must be a mounted ZFS POSIX dataset" >&2 && \
+			  return 1 ; }
 
 		# Validate both ZFS command and FROM dataset name
 		echo "=== FROM dataset:"
@@ -128,8 +128,8 @@ case "$FROM" in
 			mountpoint,space,refer,lrefer,dedup,compression,compressratio,sharenfs,sharesmb \
 			"$FROMDS"
 		[ $? != 0 ] && \
-			echo "FATAL: Couldn't use ZFS to review dataset properties" >&2 && \
-			return 1
+			{ echo "FATAL: Couldn't use ZFS to review dataset properties" >&2 && \
+			  return 1 ; }
 		;;
 esac
 
