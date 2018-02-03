@@ -25,7 +25,7 @@
 ### just the fresh repository.
 ### Also note that this did not yet intend to support cloning of bare repos.
 ###
-### Copyright (C) 2013-2016 by Jim Klimov <jim@jimklimov.com>, License: MIT
+### Copyright (C) 2013-2017 by Jim Klimov <jim@jimklimov.com>, License: MIT
 ###     https://github.com/jimklimov/git-scripts
 
 do_git_zfs_clone() {
@@ -116,7 +116,7 @@ case "$FROM" in
 		[ ! -d "$FROM/.zfs/snapshot" ] && \
 			echo "Required: FROM must be a ZFS POSIX dataset" >&2 && return 1
 
-		FROMDS="`cd "$FROMPATH" && df -k . | grep / | head -1 | awk '{print $1}'`" || \
+		FROMDS="`cd "$FROMPATH" && /bin/df -k . | grep / | head -1 | awk '{print $1}'`" || \
 			FROMDS=""
 		[ -z "$FROMDS" ] && \
 			echo "Required: FROM must be a mounted ZFS POSIX dataset" >&2 && \
@@ -219,13 +219,14 @@ DESTDS=""
 DESTMPT=""
 if [ -d "$DESTPATH/.zfs/snapshot" ]; then
 	# This seems like a dataset already? Would be fatal later on for LOCAL.
-	DESTDS="`cd "$DESTPATH" && df -k . | grep / | head -1 | awk '{print $1}'`" || \
+	DESTDS="`cd "$DESTPATH" && /bin/df -k . | grep / | head -1 | awk '{print $1}'`" && \
+	[ "$DESTDS" != '-' ] || \
 	DESTDS=""
 fi
 
 if [ -z "$DESTDS" -a -d "$DESTPATH/../.zfs/snapshot" ]; then
 	# The (future) direct parent of DEST is a dataset?
-	DESTDS="`cd "$DESTPATH/.." && df -k . | grep / | head -1 | awk '{print $1}'`"/"`basename "$DESTPATH"`" || \
+	DESTDS="`cd "$DESTPATH/.." && /bin/df -k . | grep / | head -1 | awk '{print $1}'`"/"`basename "$DESTPATH"`" || \
 	DESTDS=""
 
 	[ x"`basename "$DESTPATH"`" != x"`basename "$DEST"`" ] && \
@@ -243,7 +244,7 @@ if [ -z "$DESTDS" ]; then
 		;;
 	URL)
 		# Finally, try to spawn the clone under current directory's dataset
-		DESTDS="`df -k . | grep / | head -1 | awk '{print $1}'`/`basename "$DESTPATH"`" || \
+		DESTDS="`/bin/df -k . | grep / | head -1 | awk '{print $1}'`/`basename "$DESTPATH"`" || \
 		DESTDS=""
 		[ x"`pwd`/`basename "$DEST"`" != x"$DESTPATH" ] && \
 			DESTMPT="$DESTPATH"
