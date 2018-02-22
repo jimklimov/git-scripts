@@ -55,17 +55,38 @@ default_request() {
 
 normalize_errors() {
     OUT="`do_request 2>/dev/null`"
-    echo "$OUT" | "$JSONSH" -x '"data","errors",0,"error",[0-9]+' | grep '"data","errors",0,"error",'
+    JSON_OUT="`echo "$OUT" | "$JSONSH" -x '"data","errors",0,"error",[0-9]+'`"
+    if [ $? != 0 ]; then
+        echo "FAILED to parse REST API output as JSON markup! Dump of data follows:"
+        echo "====="
+        echo "$OUT"
+        echo "====="
+        return 2
+    fi >&2
+
+    [ -n "$JSON_OUT" ] && echo "$JSON_OUT" | grep '"data","errors",0,"error",'
     if [ $? = 0 ]; then
+        # got a hit
         return 1
     else
-        # grepped no errors
-        echo "$OUT" | "$JSONSH" -x '"data","errors",0,"error"' | grep '"data","errors",0,"error"'
+        # grepped no errors, try another pattern
+        JSON_OUT="`echo "$OUT" | "$JSONSH" -x '"data","errors",0,"error"'`"
+        if [ $? != 0 ]; then
+            echo "FAILED to parse REST API output as JSON markup! Dump of data follows:"
+            echo "====="
+            echo "$OUT"
+            echo "====="
+            return 2
+        fi >&2
+        [ -n "$JSON_OUT" ] && echo "$JSON_OUT" | grep '"data","errors",0,"error"'
         if [ $? = 0 ]; then
+            # got a hit
             return 1
         fi
-        return 0
     fi
+
+    # got no hits
+    return 0
 }
 
 bump_git() {
