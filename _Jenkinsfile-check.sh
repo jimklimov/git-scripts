@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 # A simple command-line parser that calls Jenkins REST API to validate syntax
 # of a Jenkinsfile - helps get it "right" in the first approximation without
