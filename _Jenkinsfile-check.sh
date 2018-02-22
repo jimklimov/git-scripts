@@ -83,9 +83,9 @@ bump_git() {
 
 usage() {
     cat << EOF
-    -j      pipe listing of errors through JSON.sh
+    -j      pipe listing of errors through JSON.sh (detect error reports)
     -b      if the report says syntax is OK, git-commit the bumped Jenkinsfile
-    anything else for raw output
+    anything else for raw output of the REST API - no interpretation of content
 EOF
 }
 
