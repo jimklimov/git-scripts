@@ -49,12 +49,21 @@ curl -k -s -H "`curl -k -s "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//
 }
 
 default_request() {
-    do_request
-    printf "\n\n($?)\n"
+    do_request ; REQ_RES=$?
+    printf "\n\n($REQ_RES)\n"
+    return $REQ_RES
 }
 
 normalize_errors() {
-    OUT="`do_request 2>/dev/null`"
+    OUT="`do_request 2>/dev/null`" ; REQ_RES=$?
+    if [ "$REQ_RES" != 0 ]; then
+        echo "REQUEST to REST API has failed ($REQ_RES)! Dump of data follows:"
+        echo "====="
+        echo "$OUT"
+        echo "====="
+        return $REQ_RES
+    fi >&2
+
     JSON_OUT="`echo "$OUT" | "$JSONSH" -x '"data","errors",0,"error",[0-9]+'`"
     if [ $? != 0 ]; then
         echo "FAILED to parse REST API output as JSON markup! Dump of data follows:"
