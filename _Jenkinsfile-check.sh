@@ -12,7 +12,7 @@
 # one is just the simple tool I use as long as it suffices ;)
 # See also https://github.com/jenkinsci/pipeline-model-definition-plugin/wiki/Validating-(or-linting)-a-Declarative-Jenkinsfile-from-the-command-line
 #
-# Copyright (C) 2016-2017 by Jim Klimov
+# Copyright (C) 2016-2018 by Jim Klimov
 
 # Components for the URL below; override via ./.jenkinsfile-check in the repo
 # (DO NOT git commit this file though!) or in ~/.jenkinsfile-check if you only
@@ -22,6 +22,10 @@ JENKINS_PASS="my%2Fpass"
 JENKINS_HOST="localhost"
 JENKINS_PORT="8080"
 JENKINS_ROOT="jenkins"
+
+# Default pipeline script filename is Jenkinsfile, but some repos can host
+# multiple pipeline scripts so they would be named differently
+[ -z "$JENKINSFILE" ] && JENKINSFILE="Jenkinsfile"
 
 # A copy of https://github.com/jimklimov/JSON.sh/blob/master/JSON.sh
 # is used for normalize_errors() aka "-j" argument
@@ -39,7 +43,7 @@ JSONSH=JSON.sh
 
 do_request() {
 curl -H "`curl "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" \
-    -X POST --form "jenkinsfile=`cat Jenkinsfile`" \
+    -X POST --form "jenkinsfile=`cat "${JENKINSFILE}"`" \
     "$JENKINS_BASEURL/pipeline-model-converter/validateJenkinsfile"
 }
 
@@ -67,7 +71,9 @@ bump_git() {
     OUT="`default_request`"
 
     if echo "$OUT" | grep '"data":{"result":"success"}}' ; then
-        git add Jenkinsfile && git commit -m 'Bump Jenkinsfile' && echo "COMMITTED OK, you can 'git push' any time now"
+        git add "${JENKINSFILE}" \
+        && git commit -m "Bump ${JENKINSFILE} pipeline script" \
+        && echo "COMMITTED OK, you can 'git push' any time now"
     else
         echo "$OUT"
         echo "VALIDATION FAILED" >&2
