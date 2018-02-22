@@ -42,7 +42,7 @@ JSONSH=JSON.sh
     JENKINS_BASEURL="http://$JENKINS_USER:$JENKINS_PASS@$JENKINS_HOST:$JENKINS_PORT/$JENKINS_ROOT"
 
 do_request() {
-curl -H "`curl "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" \
+curl -s -H "`curl -s "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" \
     -X POST --form "jenkinsfile=`cat "${JENKINSFILE}"`" \
     "$JENKINS_BASEURL/pipeline-model-converter/validateJenkinsfile"
 }
