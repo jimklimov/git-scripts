@@ -85,6 +85,7 @@ normalize_errors() {
         fi
     fi
 
+    echo "SUCCESS: No errors reported against this pipeline script!" >&2
     # got no hits
     return 0
 }
