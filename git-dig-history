@@ -5,8 +5,10 @@
 usage() {
     cat << EOF
 You can call this script as
-    $0 find_commits_contains [PATTERN]
-    $0 find_commits_intro [PATTERN]
+    $0 find_commits_contains [PATTERN]      commit context or content matches
+    $0 find_commits_show [PATTERN]          colorful show of above commits body
+    $0 find_commits_intro [PATTERN]         commits which add the pattern
+    $0 find_commits_drop [PATTERN]          commits which remove the pattern
     $0 fix_history [PATTERN] [REPLACEMENT]
 
 Note that PATTERN and REPLACEMENT are fixed strings (not regexes) in this context
@@ -30,14 +32,21 @@ find_commits_contains() {
 }
 
 show_commits_color() {
-    ### This finds which commits dealt the pattern (whose diff adds or removes a line with it, or has it in context)
-    ### Note that this starts with a colorful depiction of first-pass diffs, for esthetic viewing pleasure
-    ### and is parsed including color markup by other tools below
+    ### This finds which commits dealt with the pattern (whose diff
+    ### adds or removes a line with it, or has it in context)
+    ### Note that this starts with a colorful depiction of first-pass
+    ### diffs, for esthetic viewing pleasure and is parsed including
+    ### color markup by other tools below
     git rev-list --all --remotes | \
         while read CMT ; do ( \
             git show --color --pretty='format:%b' "$CMT" | \
             egrep "${PATTERN}" && echo "^^^ $CMT" \
         ) ; done
+}
+
+find_commits_show() {
+    # alias
+    show_commits_color "$@"
 }
 
 find_commits_intro() {
@@ -109,7 +118,7 @@ case "$1" in
     find|grep) ACTION="find_commits_intro"; shift ;;
     show|diff) ACTION="find_commits_show"; shift ;;
     drop|remove|del|delete) ACTION="find_commits_drop"; shift ;;
-    fix_history|find_commits_contains|find_commits_intro|find_commits_drop) ACTION="$1"; shift ;;
+    fix_history|find_commits_contains|find_commits_intro|find_commits_drop|find_commits_show) ACTION="$1"; shift ;;
     *) usage; exit 1 ;;
 esac
 
