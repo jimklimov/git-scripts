@@ -77,6 +77,16 @@ trap 'rm -rf "$LOCK"' 0 1 2 3 15
 
 while [ $# -gt 0 ]; do
     case "$1" in
+	help|-h|--help)
+	    cat << EOF
+Usage:
+$0 [add] REPO REPO ...
+$0 { del | co } REPO_REGEX
+$0 up
+$0 up REPO REPO ...
+EOF
+	    exit 0
+	    ;;
         git@*|ssh://*|https://*|http://*)
             do_register_repo "$1" || BIG_RES=$?
             ;;
