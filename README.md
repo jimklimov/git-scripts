@@ -59,5 +59,10 @@ drive actual builds and tests. This requires Jenkins REST API to to the actual
 tests, and the credentials to access the CI application server instance can be
 stored in a config file.
 
+* The `register-git-cache.sh` script also is not (yet?) a git method.
+This script is here to allow managing a git repository in the directory it
+resides in as a sort of cache, usable as a reference git repo for faster
+clones e.g. in a CI environment.
+
 Hope this helps,
 Jim Klimov
