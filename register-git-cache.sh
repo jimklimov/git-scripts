@@ -106,7 +106,7 @@ EOF
             ;;
         fetch|update|pull|up)
             if [ "$#" = 1 ]; then
-                git fetch --all -P4 --prune || \
+                git fetch --all -P4 --prune 2>/dev/null || \
                 git fetch --all --prune
             else
                 do_fetch_repos "$@" ; exit $?
