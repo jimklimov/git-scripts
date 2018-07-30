@@ -25,7 +25,7 @@ do_register_repo() {
 
     git remote -v | grep -i "$REPO" && echo "SKIP: Repo '$REPO' already registered" && return 0
     sleep 1 # ensure unique ID
-    git remote add "repo-`date -u +%s`" "$REPO"
+    git remote add "repo-`date -u +%s`" "$REPO" && echo "OK: Registered repo '$REPO'"
 }
 
 do_unregister_repo() {
