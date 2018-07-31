@@ -58,6 +58,16 @@ do_list_repoids() {
 }
 
 do_fetch_repos() {
+    if [ "$1" = "-v" ]; then
+        shift
+	if [ $# = 0 ]; then
+            git remote -v | grep fetch | awk '{print $2}'
+        else
+            do_list_repoids "$@"
+        fi | while read R ; do echo "=== $R:"; git fetch "$R" ; echo ""; done
+        return $?
+    fi
+
     git fetch --multiple `do_list_repoids "$@"`
 }
 
@@ -82,8 +92,8 @@ while [ $# -gt 0 ]; do
 Usage:
 $0 [add] REPO REPO ...
 $0 { del | co } REPO_REGEX
-$0 up
-$0 up REPO REPO ...
+$0 up [-v]
+$0 up [-v] REPO REPO ...
 EOF
 	    exit 0
 	    ;;
