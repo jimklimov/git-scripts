@@ -21,7 +21,7 @@
 
 do_register_repo() {
     REPO="$1"
-    [ -e .git ] || [ -s HEAD ] || git init --bare || exit $?
+    [ -e .git ] || [ -s HEAD ] || ( git init --bare && git config gc.auto 0 ) || exit $?
 
     git remote -v | grep -i "$REPO" && echo "SKIP: Repo '$REPO' already registered" && return 0
     sleep 1 # ensure unique ID
@@ -120,7 +120,7 @@ EOF
                 git fetch --all --prune
             else
                 shift
-                do_fetch_repos "$@" ; exit $?
+                do_fetch_repos "$@" && git gc --prune=now ; exit $?
             fi
             ;;
         *)  echo "ERROR: Unrecognized argument: $1" >&2
