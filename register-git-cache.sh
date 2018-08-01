@@ -64,7 +64,7 @@ do_fetch_repos() {
             git remote -v | grep fetch | awk '{print $2}'
         else
             do_list_repoids "$@"
-        fi | while read R ; do echo "=== $R:"; git fetch "$R" ; echo ""; done
+        fi | (RES=0 ; while read R ; do echo "=== $R:"; git fetch "$R"||{ RES=$? ; echo "FAILED TO FETCH : $R" >&2; } ; echo ""; done; exit $RES)
         return $?
     fi
 
