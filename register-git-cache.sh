@@ -142,9 +142,10 @@ EOF
                 git fetch --all --prune
             else
                 shift
-                do_fetch_repos "$@" && git gc --prune=now ; exit $?
+                do_fetch_repos "$@" ; exit $?
             fi
             ;;
+        gc) git gc --prune=now ;;
         *)  echo "ERROR: Unrecognized argument: $1" >&2
             exit 1
             ;;
