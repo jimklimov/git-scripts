@@ -13,6 +13,28 @@
 #   https://support.cloudbees.com/hc/en-us/articles/115001728812-Using-a-Git-reference-repository
 #   https://randyfay.com/content/reference-cache-repositories-speed-clones-git-clone-reference
 #   https://randyfay.com/content/git-clone-reference-considered-harmful   for some caveats
+# In particular, note that usage of reference repositories does its magic by
+# having a newly cloned (and later updated?) repository refer to bits of code
+# present in some filesystem path, rather than make a copy from the original
+# remote repository again - so saving network, disk space and maybe time.
+# Corollaries:
+# * the reference repo should be in the filesystem (maybe over NFS) and
+#   at the same locally resolved FS path if shared across build agents
+# * the reference repo should be at least readable to the build account
+#   when used in Jenkins
+# * files (and contents inside) should not disappear or be renamed over
+#   time (garbage collection, pruning, etc. do that) or the cloned repo
+#   will become invalid (not a big issue for workspaces that made a build
+#   in the past and are not reused as such, but may be a problem to remake
+#   the same run without extra rituals to create a coherent checkout;
+#   not sure if this is also a problem for reusing the workspace for later
+#   runs of a job, with same or other commits)
+# ** there is a "git disassociate" command for making a workspace standalone
+#   again, by copying into it the data from a reference repo - forfeiting
+#   the disk savings, but keeping the network/time improvements probably;
+#   this is not integrated into Jenkins Git client side, AFAIK
+# * the advanced option to use a reference repo is only applied during
+#   cloning - existing workspaces must be remade to try it out
 #
 # Copyright 2018 (C) Jim Klimov <jimklimov@gmail.com>
 # Shared on the terms of MIT license.
