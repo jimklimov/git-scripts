@@ -79,17 +79,47 @@ do_list_repoids() {
     done
 }
 
-do_fetch_repos() {
-    if [ "$1" = "-v" ]; then
-        shift
-	if [ $# = 0 ]; then
-            git remote -v | grep fetch | awk '{print $2}'
-        else
-            do_list_repoids "$@"
-        fi | (RES=0 ; while read R ; do echo "=== $R:"; git fetch "$R"||{ RES=$? ; echo "FAILED TO FETCH : $R" >&2; } ; echo ""; done; exit $RES)
-        return $?
-    fi
+do_fetch_repos_verbose_seq() (
+    # Fetches repos listed on stdin and reports, sequentially
+    RES=0
+    while read R ; do
+        echo "=== $R:"
+        git fetch "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2 ; }
+        echo ""
+    done
+    exit $RES
+)
 
+do_fetch_repos_verbose_par() (
+    # Fetches repos listed on stdin and reports, in parallel. NOTE:
+    # * can complete faster than seq, but with messier output
+    # * no job control for multiple children so far
+    RES=0
+    while read R ; do
+        echo "=== Starting $R in background...:"
+        ( git fetch "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2; exit $RES; } ; echo "===== Completed $R"; ) &
+        echo ""
+    done
+    wait || RES=$?
+    exit $RES
+)
+
+do_fetch_repos() {
+    FETCHER="do_fetch_repos_verbose_seq"
+    case "$1" in
+	-vp) FETCHER="do_fetch_repos_verbose_par" ;& # fall through
+	-vs|-v)
+            shift
+            if [ $# = 0 ]; then
+                git remote -v | grep fetch | awk '{print $2}'
+            else
+                do_list_repoids "$@"
+            fi | $FETCHER
+            return $?
+            ;;
+    esac
+
+    # Non-verbose default mode:
     git fetch --multiple `do_list_repoids "$@"`
 }
 
@@ -114,8 +144,8 @@ while [ $# -gt 0 ]; do
 Usage:
 $0 [add] REPO REPO ...
 $0 { del | co } REPO_REGEX
-$0 up [-v]
-$0 up [-v] REPO REPO ...
+$0 up [-v|-vs|-vp]
+$0 up [-v|-vs|-vp] REPO REPO ...
 EOF
 	    exit 0
 	    ;;
