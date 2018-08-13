@@ -137,11 +137,11 @@ EOF
             shift
             ;;
         fetch|update|pull|up)
-            if [ "$#" = 1 ]; then
+            shift
+            if [ "$#" = 0 ]; then
                 git fetch --all -P4 --prune 2>/dev/null || \
                 git fetch --all --prune
             else
-                shift
                 do_fetch_repos "$@" ; exit $?
             fi
             ;;
