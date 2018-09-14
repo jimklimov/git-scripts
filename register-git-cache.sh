@@ -45,7 +45,7 @@ do_register_repo() {
     REPO="$1"
     [ -e .git ] || [ -s HEAD ] || ( git init --bare && git config gc.auto 0 ) || exit $?
 
-    git remote -v | grep -i "$REPO" && echo "SKIP: Repo '$REPO' already registered" && return 0
+    git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
     sleep 1 # ensure unique ID
     git remote add "repo-`date -u +%s`" "$REPO" && echo "OK: Registered repo '$REPO'"
 }
