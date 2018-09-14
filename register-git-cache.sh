@@ -96,7 +96,7 @@ do_fetch_repos_verbose_par() (
     # * no job control for multiple children so far
     RES=0
     while read R ; do
-        echo "=== Starting $R in background...:"
+        echo "=== Starting $R in background..."
         ( git fetch "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2; exit $RES; } ; echo "===== Completed $R"; ) &
         echo ""
     done
@@ -107,8 +107,8 @@ do_fetch_repos_verbose_par() (
 do_fetch_repos() {
     FETCHER="do_fetch_repos_verbose_seq"
     case "$1" in
-	-vp) FETCHER="do_fetch_repos_verbose_par" ;& # fall through
-	-vs|-v)
+        -vp) FETCHER="do_fetch_repos_verbose_par" ;& # fall through
+        -vs|-v)
             shift
             if [ $# = 0 ]; then
                 git remote -v | grep fetch | awk '{print $2}'
@@ -139,16 +139,16 @@ trap 'rm -rf "$LOCK"' 0 1 2 3 15
 
 while [ $# -gt 0 ]; do
     case "$1" in
-	help|-h|--help)
-	    cat << EOF
+        help|-h|--help)
+            cat << EOF
 Usage:
 $0 [add] REPO REPO ...
 $0 { del | co } REPO_REGEX
 $0 up [-v|-vs|-vp]
 $0 up [-v|-vs|-vp] REPO REPO ...
 EOF
-	    exit 0
-	    ;;
+            exit 0
+            ;;
         git@*|ssh://*|https://*|http://*)
             do_register_repo "$1" || BIG_RES=$?
             ;;
