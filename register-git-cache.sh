@@ -129,7 +129,7 @@ cd "`dirname $0`" || exit 1
 
 while [ -s "$LOCK" ] ; do
     OLDPID="`head -1 "$LOCK"`"
-    OLDHOST="`head -2 "$LOCK"` | tail -1"
+    OLDHOST="`head -2 "$LOCK" | tail -1`"
     if [ -n "$OLDPID" ] && [ "$OLDPID" -gt 0 ] ; then
         echo "LOCKED by PID $OLDPID on $OLDHOST, waiting..."
 	if [ "$OLDHOST" = `hostname` ]; then
