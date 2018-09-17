@@ -129,12 +129,19 @@ cd "`dirname $0`" || exit 1
 
 while [ -s "$LOCK" ] ; do
     OLDPID="`head -1 "$LOCK"`"
-    if [ -n "$OLDPID" ] && [ "$OLDPID" -gt 0 ] && [ -d "/proc/$OLDPID" ]; then
-        echo "LOCKED by PID $OLDPID, waiting..."
+    OLDHOST="`head -2 "$LOCK"` | tail -1"
+    if [ -n "$OLDPID" ] && [ "$OLDPID" -gt 0 ] ; then
+        echo "LOCKED by PID $OLDPID on $OLDHOST, waiting..."
+	if [ "$OLDHOST" = `hostname` ]; then
+	    if [ ! -d "/proc/$OLDPID" ]; then
+		echo "I am `hostname` and '/proc/$OLDPID' is absent, removing lock and waiting for up to 15 sec (maybe other copies will kick in)..."
+		rm -f "$LOCK" ; sleep `5 + expr $$ % 10`
+	    fi
+	fi
         sleep 1
     fi
 done
-echo "$$" > "$LOCK"
+( echo "$$" ; hostname ) > "$LOCK"
 trap 'rm -rf "$LOCK"' 0 1 2 3 15
 
 while [ $# -gt 0 ]; do
