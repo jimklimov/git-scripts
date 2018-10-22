@@ -135,7 +135,7 @@ while [ -s "$LOCK" ] ; do
 	if [ "$OLDHOST" = `hostname` ]; then
 	    if [ ! -d "/proc/$OLDPID" ]; then
 		echo "I am `hostname` and '/proc/$OLDPID' is absent, removing lock and waiting for up to 15 sec (maybe other copies will kick in)..."
-		rm -f "$LOCK" ; sleep `5 + expr $$ % 10`
+		rm -f "$LOCK" ; sleep `expr 5 + $$ % 10`
 	    fi
 	fi
         sleep 1
