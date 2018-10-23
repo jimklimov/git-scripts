@@ -84,7 +84,7 @@ do_fetch_repos_verbose_seq() (
     RES=0
     while read R ; do
         echo "=== $R:"
-        git fetch --tags --progress "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2 ; }
+        git fetch --tags --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' || { RES=$? ; echo "FAILED TO FETCH : $R" >&2 ; }
         echo ""
     done
     exit $RES
@@ -97,7 +97,7 @@ do_fetch_repos_verbose_par() (
     RES=0
     while read R ; do
         echo "=== Starting $R in background..."
-        ( git fetch --tags "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2; exit $RES; } ; echo "===== Completed $R"; ) &
+        ( git fetch --tags "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' || { RES=$? ; echo "FAILED TO FETCH : $R" >&2; exit $RES; } ; echo "===== Completed $R"; ) &
         echo ""
     done
     wait || RES=$?
