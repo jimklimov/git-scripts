@@ -118,7 +118,7 @@ do_fetch_repos() {
         -vs|-v)
             shift
             if [ $# = 0 ]; then
-                git remote -v | grep fetch | awk '{print $2}'
+                git remote -v | grep fetch | awk '{print $1}'
             else
                 do_list_repoids "$@"
             fi | $FETCHER
