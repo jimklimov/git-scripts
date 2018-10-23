@@ -68,14 +68,21 @@ lc() {
 }
 
 do_list_repoids() {
+    # Optional arguments are a list of URLs that must match exactly
+    # (.git extension included) though case-insensitively to be listed.
+    # Returns the git remote repo names (e.g. repo-1536929947 here).
     git remote -v | while read I U M ; do
         [ "$M" = '(fetch)' ] && \
         U_LC="`lc "$U"`" && \
-        for R in "$@" ; do
-            if [ "`lc "$R"`" = "$U_LC" ]; then
-                echo "$I"
-            fi
-        done
+        if [ $# = 0 ]; then
+            echo "$I"
+        else
+            for R in "$@" ; do
+                if [ "`lc "$R"`" = "$U_LC" ]; then
+                    echo "$I"
+                fi
+            done
+        fi
     done
 }
 
@@ -153,10 +160,16 @@ while [ $# -gt 0 ]; do
 Usage:
 $0 [add] REPO REPO ...
 $0 { del | co } REPO_REGEX
+$0 list [REPO...]
 $0 up [-v|-vs|-vp]
 $0 up [-v|-vs|-vp] REPO REPO ...
+where REPO are original remote repository URLs
 EOF
             exit 0
+            ;;
+        list)
+            shift
+            do_list_repoids "$@" ; exit $?
             ;;
         git@*|ssh://*|https://*|http://*)
             do_register_repo "$1" || BIG_RES=$?
