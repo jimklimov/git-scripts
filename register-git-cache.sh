@@ -120,6 +120,8 @@ do_fetch_repos() {
     esac
 
     # Non-verbose default mode:
+    # TODO: Can we pass a refspec to fetch all branches here?
+    # Or should we follow up with another fetch (like verbose)?
     git fetch --multiple --tags `do_list_repoids "$@"`
 }
 
@@ -175,6 +177,7 @@ EOF
             ;;
         fetch|update|pull|up)
             if [ "$#" = 1 ]; then
+                # Note: -jN parallelizes submodules, not remotes
                 git fetch --all -j8 --prune --tags 2>/dev/null || \
                 git fetch --all --prune --tags
             else
