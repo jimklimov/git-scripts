@@ -84,7 +84,7 @@ do_fetch_repos_verbose_seq() (
     RES=0
     while read R ; do
         echo "=== $R:"
-        git fetch "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2 ; }
+        git fetch --tags --progress "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2 ; }
         echo ""
     done
     exit $RES
@@ -97,7 +97,7 @@ do_fetch_repos_verbose_par() (
     RES=0
     while read R ; do
         echo "=== Starting $R in background..."
-        ( git fetch "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2; exit $RES; } ; echo "===== Completed $R"; ) &
+        ( git fetch --tags "$R" || { RES=$? ; echo "FAILED TO FETCH : $R" >&2; exit $RES; } ; echo "===== Completed $R"; ) &
         echo ""
     done
     wait || RES=$?
@@ -120,7 +120,7 @@ do_fetch_repos() {
     esac
 
     # Non-verbose default mode:
-    git fetch --multiple `do_list_repoids "$@"`
+    git fetch --multiple --tags `do_list_repoids "$@"`
 }
 
 BIG_RES=0
@@ -175,8 +175,8 @@ EOF
             ;;
         fetch|update|pull|up)
             if [ "$#" = 1 ]; then
-                git fetch --all -P4 --prune 2>/dev/null || \
-                git fetch --all --prune
+                git fetch --all -P4 --prune --tags 2>/dev/null || \
+                git fetch --all --prune --tags
             else
                 shift
                 do_fetch_repos "$@" ; exit $?
