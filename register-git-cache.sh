@@ -93,7 +93,9 @@ do_fetch_repos_verbose_seq() (
     while read R U ; do
         [ -n "$U" ] || U="$R"
         echo "=== $U ($R):"
-        git fetch --tags --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
+        git fetch --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
+        && git fetch --tags --progress "$R" \
+        || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
     done
     exit $RES
@@ -107,7 +109,10 @@ do_fetch_repos_verbose_par() (
     while read R U ; do
         [ -n "$U" ] || U="$R"
         echo "=== Starting $U ($R) in background..."
-        ( git fetch --tags "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2; exit $RES; } ; echo "===== Completed $U ($R)"; ) &
+        ( git fetch "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
+          && git fetch --tags "$R" \
+          || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; exit $RES; }
+          echo "===== Completed $U ($R)" ; ) &
         echo ""
     done
     wait || RES=$?
