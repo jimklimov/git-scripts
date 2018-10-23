@@ -70,16 +70,17 @@ lc() {
 do_list_repoids() {
     # Optional arguments are a list of URLs that must match exactly
     # (.git extension included) though case-insensitively to be listed.
-    # Returns the git remote repo names (e.g. repo-1536929947 here).
+    # Returns the git remote repo names (e.g. repo-1536929947 here) and
+    # the original URL.
     git remote -v | while read R U M ; do
         [ "$M" = '(fetch)' ] && \
         U_LC="`lc "$U"`" && \
         if [ $# = 0 ]; then
-            echo "$R"
+            printf '%s\t%s\n' "$R" "$U"
         else
             for UU in "$@" ; do
                 if [ "`lc "$UU"`" = "$U_LC" ]; then
-                    echo "$R"
+                    printf '%s\t%s\n' "$R" "$U"
                 fi
             done
         fi
@@ -89,9 +90,10 @@ do_list_repoids() {
 do_fetch_repos_verbose_seq() (
     # Fetches repos listed on stdin and reports, sequentially
     RES=0
-    while read R ; do
-        echo "=== $R:"
-        git fetch --tags --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' || { RES=$? ; echo "FAILED TO FETCH : $R" >&2 ; }
+    while read R U ; do
+        [ -n "$U" ] || U="$R"
+        echo "=== $U ($R):"
+        git fetch --tags --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
     done
     exit $RES
@@ -102,9 +104,10 @@ do_fetch_repos_verbose_par() (
     # * can complete faster than seq, but with messier output
     # * no job control for multiple children so far
     RES=0
-    while read R ; do
-        echo "=== Starting $R in background..."
-        ( git fetch --tags "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' || { RES=$? ; echo "FAILED TO FETCH : $R" >&2; exit $RES; } ; echo "===== Completed $R"; ) &
+    while read R U ; do
+        [ -n "$U" ] || U="$R"
+        echo "=== Starting $U ($R) in background..."
+        ( git fetch --tags "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2; exit $RES; } ; echo "===== Completed $U ($R)"; ) &
         echo ""
     done
     wait || RES=$?
@@ -118,7 +121,7 @@ do_fetch_repos() {
         -vs|-v)
             shift
             if [ $# = 0 ]; then
-                git remote -v | grep fetch | awk '{print $1}'
+                git remote -v | grep fetch | awk '{print $1" "$2}'
             else
                 do_list_repoids "$@"
             fi | $FETCHER
@@ -129,7 +132,7 @@ do_fetch_repos() {
     # Non-verbose default mode:
     # TODO: Can we pass a refspec to fetch all branches here?
     # Or should we follow up with another fetch (like verbose)?
-    git fetch --multiple --tags `do_list_repoids "$@"`
+    git fetch --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
 }
 
 BIG_RES=0
