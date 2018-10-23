@@ -175,7 +175,7 @@ EOF
             ;;
         fetch|update|pull|up)
             if [ "$#" = 1 ]; then
-                git fetch --all -P4 --prune --tags 2>/dev/null || \
+                git fetch --all -j8 --prune --tags 2>/dev/null || \
                 git fetch --all --prune --tags
             else
                 shift
