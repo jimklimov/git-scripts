@@ -134,12 +134,12 @@ while [ -s "$LOCK" ] ; do
     OLDHOST="`head -2 "$LOCK" | tail -1`"
     if [ -n "$OLDPID" ] && [ "$OLDPID" -gt 0 ] ; then
         echo "LOCKED by PID $OLDPID on $OLDHOST, waiting..."
-	if [ "$OLDHOST" = `hostname` ]; then
-	    if [ ! -d "/proc/$OLDPID" ]; then
-		echo "I am `hostname` and '/proc/$OLDPID' is absent, removing lock and waiting for up to 15 sec (maybe other copies will kick in)..."
-		rm -f "$LOCK" ; sleep `expr 5 + $$ % 10`
-	    fi
-	fi
+        if [ "$OLDHOST" = `hostname` ]; then
+            if [ ! -d "/proc/$OLDPID" ]; then
+                echo "I am `hostname` and '/proc/$OLDPID' is absent, removing lock and waiting for up to 15 sec (maybe other copies will kick in)..."
+                rm -f "$LOCK" ; sleep `expr 5 + $$ % 10`
+            fi
+        fi
         sleep 1
     fi
 done
