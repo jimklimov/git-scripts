@@ -144,7 +144,9 @@ BIG_RES=0
 LOCK="`dirname $0`/.gitcache.lock"
 cd "`dirname $0`" || exit 1
 
-while [ -s "$LOCK" ] ; do
+if [ -z "$SKIP_LOCK" ] ; then
+# Skipping is reserved for RO operations like listing, or for debugging the script
+  while [ -s "$LOCK" ] ; do
     OLDPID="`head -1 "$LOCK"`"
     OLDHOST="`head -2 "$LOCK" | tail -1`"
     if [ -n "$OLDPID" ] && [ "$OLDPID" -gt 0 ] ; then
@@ -157,9 +159,10 @@ while [ -s "$LOCK" ] ; do
         fi
         sleep 1
     fi
-done
-( echo "$$" ; hostname ) > "$LOCK"
-trap 'rm -rf "$LOCK"' 0 1 2 3 15
+  done
+  ( echo "$$" ; hostname ) > "$LOCK"
+  trap 'rm -rf "$LOCK"' 0 1 2 3 15
+fi
 
 while [ $# -gt 0 ]; do
     case "$1" in
