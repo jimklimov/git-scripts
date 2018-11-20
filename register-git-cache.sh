@@ -171,14 +171,14 @@ while [ $# -gt 0 ]; do
 Usage:
 $0 [add] REPO REPO ...
 $0 { del | co } REPO_REGEX
-$0 list [REPO...]
+$0 { list | ls } [REPO...]
 $0 up [-v|-vs|-vp]
 $0 up [-v|-vs|-vp] REPO REPO ...
 where REPO are original remote repository URLs
 EOF
             exit 0
             ;;
-        list)
+        list|ls)
             shift
             do_list_repoids "$@" ; exit $?
             ;;
