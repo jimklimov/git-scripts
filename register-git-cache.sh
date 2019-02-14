@@ -113,7 +113,6 @@ do_fetch_repos_verbose_par() (
     # * can complete faster than seq, but with messier output
     # * no job control for multiple children so far
     RES=0
-    lower_priority
     while read R U ; do
         [ -n "$U" ] || U="$R"
         echo "=== Starting $U ($R) in background..."
@@ -130,7 +129,9 @@ do_fetch_repos_verbose_par() (
 do_fetch_repos() {
     FETCHER="do_fetch_repos_verbose_seq"
     case "$1" in
-        -vp) FETCHER="do_fetch_repos_verbose_par" ;& # fall through
+        -vp) FETCHER="do_fetch_repos_verbose_par"
+            lower_priority
+            ;& # fall through
         -vs|-v)
             shift
             if [ $# = 0 ]; then
