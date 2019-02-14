@@ -67,6 +67,13 @@ lc() {
     echo "$*" | tr 'A-Z' 'a-z'
 }
 
+lower_priority() {
+    # Do not bring the system down by bursting dozens (or more) of
+    # git clients... Though not a critical failure if we can not.
+    # TODO : Use GNU parallel or somesuch?
+    renice -n +5 $$ || true
+}
+
 do_list_repoids() {
     # Optional arguments are a list of URLs that must match exactly
     # (.git extension included) though case-insensitively to be listed.
@@ -106,6 +113,7 @@ do_fetch_repos_verbose_par() (
     # * can complete faster than seq, but with messier output
     # * no job control for multiple children so far
     RES=0
+    lower_priority
     while read R U ; do
         [ -n "$U" ] || U="$R"
         echo "=== Starting $U ($R) in background..."
@@ -201,6 +209,7 @@ EOF
             ;;
         fetch|update|pull|up)
             if [ "$#" = 1 ]; then
+                lower_priority
                 # Note: -jN parallelizes submodules, not remotes
                 git fetch --all -j8 --prune --tags 2>/dev/null || \
                 git fetch --all --prune --tags
