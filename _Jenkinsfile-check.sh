@@ -44,11 +44,11 @@ JSONSH=JSON.sh
     JENKINS_BASEURL="http://$JENKINS_USER:$JENKINS_PASS@$JENKINS_HOST:$JENKINS_PORT/$JENKINS_ROOT"
 
 do_request() {
-CRUMB="`curl -k -v "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" || CRUMB=""
-echo "$CRUMB" | grep -w 404 && CRUMB=""
-curl -k -v ${CRUMB:+H "$CRUMB"} \
-    -X POST --form "jenkinsfile=`cat "${JENKINSFILE}"`" \
-    "$JENKINS_BASEURL/pipeline-model-converter/validateJenkinsfile"
+    CRUMB="`curl -k -v "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" || CRUMB=""
+    echo "$CRUMB" | grep -w 404 && CRUMB=""
+    curl -k -v ${CRUMB:+H "$CRUMB"} \
+        -X POST --form "jenkinsfile=`cat "${JENKINSFILE}"`" \
+        "$JENKINS_BASEURL/pipeline-model-converter/validateJenkinsfile"
 }
 
 default_request() {
