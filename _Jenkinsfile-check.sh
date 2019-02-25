@@ -26,7 +26,8 @@ JENKINS_ROOT="jenkins"
 
 # Default pipeline script filename is Jenkinsfile, but some repos can host
 # multiple pipeline scripts so they would be named differently
-[ -z "$JENKINSFILE" ] && JENKINSFILE="Jenkinsfile"
+[ -z "$JENKINSFILE" ] && JENKINSFILE="Jenkinsfile" \
+&& echo "NOTE: Using default JENKINSFILE='$JENKINSFILE' - if you want to test another, pass the envvar from caller"
 
 # A copy of https://github.com/jimklimov/JSON.sh/blob/master/JSON.sh
 # is used for normalize_errors() aka "-j" argument
