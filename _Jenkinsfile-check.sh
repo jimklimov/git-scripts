@@ -45,7 +45,9 @@ JSONSH=JSON.sh
 
 do_request() {
     CRUMB="`curl -k -v "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" || CRUMB=""
-    echo "$CRUMB" | grep -w 404 && CRUMB=""
+    echo "$CRUMB" | grep -w 404 >/dev/null && CRUMB=""
+    [ -n "$CRUMB" ] || echo "NOTE : Did not get a crumb, so will not use one"
+
     curl -k -v ${CRUMB:+H "$CRUMB"} \
         -X POST --form "jenkinsfile=`cat "${JENKINSFILE}"`" \
         "$JENKINS_BASEURL/pipeline-model-converter/validateJenkinsfile"
