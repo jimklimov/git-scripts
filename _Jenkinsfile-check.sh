@@ -13,7 +13,7 @@ set -o pipefail
 # one is just the simple tool I use as long as it suffices ;)
 # See also https://github.com/jenkinsci/pipeline-model-definition-plugin/wiki/Validating-(or-linting)-a-Declarative-Jenkinsfile-from-the-command-line
 #
-# Copyright (C) 2016-2018 by Jim Klimov
+# Copyright (C) 2016-2019 by Jim Klimov
 
 # Components for the URL below; override via ./.jenkinsfile-check in the repo
 # (DO NOT git commit this file though!) or in ~/.jenkinsfile-check if you only
@@ -46,12 +46,15 @@ JSONSH=JSON.sh
 [ -n "${JENKINSFILE-}" ] && [ -s "${JENKINSFILE}" ] || { echo "FATAL : Did not find a JENKINSFILE='$JENKINSFILE'" >&2 ; exit 1 ; }
 [ -n "${JSONSH-}" ] && [ -s "${JSONSH}" ] && [ -x "${JSONSH}" ] || { echo "FATAL : Did not find a JSONSH='$JSONSH' (did you get one from https://github.com/jimklimov/JSON.sh/blob/master/JSON.sh ?)" >&2 ; exit 1 ; }
 
+CURL_VERBOSE="-s"
+[ x"${DEBUG-}" = xyes ] && CURL_VERBOSE="-v"
+
 do_request() {
-    CRUMB="`curl -k -v "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" || CRUMB=""
+    CRUMB="`curl -k $CURL_VERBOSE "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" || CRUMB=""
     echo "$CRUMB" | grep -w 404 >/dev/null && CRUMB=""
     [ -n "$CRUMB" ] || echo "NOTE : Did not get a crumb, so will not use one"
 
-    curl -k -v ${CRUMB:+H "$CRUMB"} \
+    curl -k $CURL_VERBOSE ${CRUMB:+H "$CRUMB"} \
         -X POST --form "jenkinsfile=<${JENKINSFILE}" \
         "$JENKINS_BASEURL/pipeline-model-converter/validateJenkinsfile"
 }
