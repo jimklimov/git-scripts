@@ -49,7 +49,7 @@ do_request() {
     [ -n "$CRUMB" ] || echo "NOTE : Did not get a crumb, so will not use one"
 
     curl -k -v ${CRUMB:+H "$CRUMB"} \
-        -X POST --form "jenkinsfile=`cat "${JENKINSFILE}"`" \
+        -X POST --form "jenkinsfile=<${JENKINSFILE}" \
         "$JENKINS_BASEURL/pipeline-model-converter/validateJenkinsfile"
 }
 
