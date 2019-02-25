@@ -43,6 +43,9 @@ JSONSH=JSON.sh
 [ -z "$JENKINS_BASEURL" ] && \
     JENKINS_BASEURL="http://$JENKINS_USER:$JENKINS_PASS@$JENKINS_HOST:$JENKINS_PORT/$JENKINS_ROOT"
 
+[ -n "${JENKINSFILE-}" ] && [ -s "${JENKINSFILE}" ] || { echo "FATAL : Did not find a JENKINSFILE='$JENKINSFILE'" >&2 ; exit 1 ; }
+[ -n "${JSONSH-}" ] && [ -s "${JSONSH}" ] && [ -x "${JSONSH}" ] || { echo "FATAL : Did not find a JSONSH='$JSONSH'" >&2 ; exit 1 ; }
+
 do_request() {
     CRUMB="`curl -k -v "$JENKINS_BASEURL/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"`" || CRUMB=""
     echo "$CRUMB" | grep -w 404 >/dev/null && CRUMB=""
