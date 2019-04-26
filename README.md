@@ -50,6 +50,9 @@ As with any other Git methods, it suffices that these scripts are available in
 your `PATH` (e.g. in `$USER/bin`, or symlinked to `/usr/bin`, etc.) and then
 they can be called as `git method-name`, such as `git zclone ws1 /tmp/buildws`.
 
+* `git retimestamp` -- a PoC script to change timestamps of the most-recent
+`BACK` commits in your branch, rewinding each by `OFFSET` (e.g. `-3 days`).
+
 * The `_Jenkinsfile-check.sh` is an odd addition to the bunch: it is not (yet)
 a git method. This script allows to validate a `Jenkinsfile` that can automate
 your CI pipelines (instructions stored and tracked as code, rather than results

@@ -1,0 +1,47 @@
+#!/bin/sh
+
+### Rewind commit/author timestamps of N commits back to a
+### specified offset compared to current values of each commit
+### (C) 2019 by Jim Klimov
+
+set -xv
+[ -n "$BACK" ] || BACK=2
+PREV=1
+[ -n "$OFFSET" ] || OFFSET="- 3 days"
+INITLOG="`git log -1"
+
+# Note that we must rewrite history starting from the newest
+# commit, tracking back to the oldest, otherwise the edited
+# timestamps tend to end up broken (reset to "today + offset").
+while [ "$PREV" -le "$BACK" ] ; do
+	GIT_EDITOR="sed -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV} && \
+	while sleep 0.1 ; do
+		echo "===== START COMMIT PARSE:"
+		DOLD="`git show -s --format='%ci'`"
+		DDDD="$DOLD $OFFSET"
+		DNEW="`date -d "$DDDD"`"
+
+		echo "=== AMENDING:"
+		echo "=== OLD DATE: $DOLD"
+		echo "=== NEW DATE: $DNEW"
+		GIT_COMMITTER_DATE="$DNEW" git commit --amend --no-edit --date "$DNEW"
+
+		echo "=== RESULT LOG:"
+		git log -1
+
+		echo "=== CONTINUE REBASE:"
+		git rebase --continue || break
+
+		git status | grep rebasing || { echo "+++ DONE" && break ; }
+
+		echo "===== Next loop..."
+		echo ""
+	done
+	PREV="`expr $PREV + 1`"
+	echo "+++++++++++++++ NEXT CYCLE"
+done
+
+echo ""
+echo ""
+echo "DONE; if you want to 'git reset' to initial state, this was the starting point:"
+echo "$INITLOG"
