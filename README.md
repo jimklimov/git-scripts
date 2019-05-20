@@ -53,6 +53,13 @@ they can be called as `git method-name`, such as `git zclone ws1 /tmp/buildws`.
 * `git retimestamp` -- a PoC script to change timestamps of the most-recent
 `BACK` commits in your branch, rewinding each by `OFFSET` (e.g. `-3 days`).
 
+* `git reauthor` -- a PoC script to change authorship of the most-recent `BACK`
+commits in your branch, changing to `$COMMIT_USER_NAME <$COMMIT_USER_EMAIL>`
+and optionally filtering to only change commits originally owned by matches
+to regex `$COMMIT_USER_FILTER`. Intended to fix up code initially developed
+and tested "in vivo" on final deployments without proper git setup attributing
+changes to certain persons.
+
 * The `_Jenkinsfile-check.sh` is an odd addition to the bunch: it is not (yet)
 a git method. This script allows to validate a `Jenkinsfile` that can automate
 your CI pipelines (instructions stored and tracked as code, rather than results

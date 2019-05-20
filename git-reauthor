@@ -1,0 +1,61 @@
+#!/bin/sh
+
+### Change commit user (author) name and email for the last BACK commits
+### (C) 2019 by Jim Klimov
+
+#set -xv
+[ -n "$BACK" ] || BACK=2
+PREV=1
+[ -n "$COMMIT_USER_NAME" ] || COMMIT_USER_NAME="`git config user.name || git config --global user.name`"
+[ -n "$COMMIT_USER_NAME" ] || { echo "COMMIT_USER_NAME or proper git config is required" >&2 ; exit 1; }
+[ -n "$COMMIT_USER_EMAIL" ] || COMMIT_USER_EMAIL="`git config user.email || git config --global user.email`"
+[ -n "$COMMIT_USER_EMAIL" ] || { echo "COMMIT_USER_EMAIL or proper git config is required" >&2 ; exit 1; }
+INITLOG="`git log -1"
+
+ANEW="$COMMIT_USER_NAME <$COMMIT_USER_EMAIL>"
+
+echo "Going back BACK=$BACK commits to change the commit authors to '$ANEW' ..."
+[ -n "$COMMIT_USER_FILTER" ] && { echo "...matching regex '.*$COMMIT_USER_FILTER.*'" ; } \
+|| { echo "You do not have COMMIT_USER_FILTER set, waiting a bit in case you need that" >&2 ; sleep 5; }
+
+# Note that we must rewrite history starting from the newest
+# commit, tracking back to the oldest, otherwise the edited
+# timestamps tend to end up broken (reset to "today + offset").
+while [ "$PREV" -le "$BACK" ] ; do
+	GIT_EDITOR="sed -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV} && \
+	while sleep 0.1 ; do
+		echo "===== START COMMIT PARSE:"
+		AOLD="`git show -s --format='%an <%ae>'`"
+
+		echo "=== AMENDING:"
+		echo "=== OLD USER: $AOLD"
+		if [ -n "$COMMIT_USER_FILTER" ]; then
+			if expr "$AOLD" : ".*$COMMIT_USER_FILTER.*" > /dev/null ; then
+				echo "===== OLD USER matches the regex '$COMMIT_USER_FILTER'"
+			else
+				echo "===== OLD USER does not match the regex '$COMMIT_USER_FILTER', skipped"
+			fi
+		fi
+
+		echo "=== NEW USER: $ANEW"
+		git commit --amend --no-edit --author "$ANEW"
+
+		echo "=== RESULT LOG:"
+		git log -1
+
+		echo "=== CONTINUE REBASE:"
+		git rebase --continue || break
+
+		git status | grep rebasing || { echo "+++ DONE" && break ; }
+
+		echo "===== Next loop..."
+		echo ""
+	done
+	PREV="`expr $PREV + 1`"
+	echo "+++++++++++++++ NEXT CYCLE"
+done
+
+echo ""
+echo ""
+echo "DONE; if you want to 'git reset' to initial state, this was the starting point:"
+echo "$INITLOG"
