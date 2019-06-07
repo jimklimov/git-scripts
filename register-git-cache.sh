@@ -96,12 +96,13 @@ do_list_repoids() {
 
 do_fetch_repos_verbose_seq() (
     # Fetches repos listed on stdin and reports, sequentially
+    # -f allows to force-update references to remote current state (e.g. floating tags)
     RES=0
     while read R U ; do
         [ -n "$U" ] || U="$R"
         echo "=== $U ($R):"
-        git fetch --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
-        && git fetch --tags --progress "$R" \
+        git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
+        && git fetch -f --tags --progress "$R" \
         || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
     done
@@ -112,12 +113,13 @@ do_fetch_repos_verbose_par() (
     # Fetches repos listed on stdin and reports, in parallel. NOTE:
     # * can complete faster than seq, but with messier output
     # * no job control for multiple children so far
+    # -f allows to force-update references to remote current state (e.g. floating tags)
     RES=0
     while read R U ; do
         [ -n "$U" ] || U="$R"
         echo "=== Starting $U ($R) in background..."
-        ( git fetch "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
-          && git fetch --tags "$R" \
+        ( git fetch -f "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
+          && git fetch -f --tags "$R" \
           || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; exit $RES; }
           echo "===== Completed $U ($R)" ; ) &
         echo ""
@@ -146,7 +148,7 @@ do_fetch_repos() {
     # Non-verbose default mode:
     # TODO: Can we pass a refspec to fetch all branches here?
     # Or should we follow up with another fetch (like verbose)?
-    git fetch --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
+    git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
 }
 
 BIG_RES=0
@@ -212,8 +214,8 @@ EOF
             if [ "$#" = 1 ]; then
                 lower_priority
                 # Note: -jN parallelizes submodules, not remotes
-                git fetch --all -j8 --prune --tags 2>/dev/null || \
-                git fetch --all --prune --tags
+                git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+                git fetch -f --all --prune --tags
             else
                 shift
                 do_fetch_repos "$@" ; exit $?
