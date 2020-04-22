@@ -87,6 +87,11 @@ hostnamefilter_newest() (
                 printf 'OLDEST:\t%s\t%s\t~%s\n'  "$OLDEST" "`date -u -d '1970-01-01 + '"$OLDEST"' sec'`" "$(($NOW - $OLDEST))"
                 if [ "$(($NOW - $OLDEST))" -gt "$TOO_OLD" ] ; then RES=42 ; fi
             fi
+            if [ "$RES" = 0 ]; then
+                echo "ALL OK: Some stale/recent lock files were found, but none were older than $TOO_OLD sec"
+            else
+                echo "FAILED: Some stale/recent lock files were found to be older than $TOO_OLD sec" >&2
+            fi
         else
             echo "ALL OK: No (stale/recent) lock files found"
         fi
