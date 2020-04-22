@@ -60,6 +60,8 @@ to regex `$COMMIT_USER_FILTER`. Intended to fix up code initially developed
 and tested "in vivo" on final deployments without proper git setup attributing
 changes to certain persons.
 
+# Other related automation scripts
+
 * The `_Jenkinsfile-check.sh` is an odd addition to the bunch: it is not (yet)
 a git method. This script allows to validate a `Jenkinsfile` that can automate
 your CI pipelines (instructions stored and tracked as code, rather than results
@@ -73,6 +75,11 @@ stored in a config file.
 This script is here to allow managing a git repository in the directory it
 resides in as a sort of cache, usable as a reference git repo for faster
 clones e.g. in a CI environment.
+
+* The `ccache-cleanlock.sh` is not a git-related script. However it finds use
+in the build farms I maintain so got hosted here :) As the name implies, this
+one helps automate the ccache lock files, which sometimes can get abandoned by
+an interrupted build or due to systemic issues, and slow down subsequent builds.
 
 Hope this helps,
 Jim Klimov
