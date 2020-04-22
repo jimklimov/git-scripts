@@ -28,6 +28,13 @@ TOO_OLD=120
 [ -n "${CHECKPROC-}" ] || CHECKPROC=true
 [ -n "${CLEANHOST-}" ] && CHECKPROC=false && { if [ "${CLEANHOST}" = "`hostname`" ] ; then CHECKPROC=true ; fi; } || CLEANHOST="`hostname`"
 
+# For build farm, the shared ccache is mounted centrally
+#[ -n "${CCACHE_DIR}" ] || CCACHE_DIR="$HOME/.ccache/"
+[ -n "${CCACHE_DIR}" ] || CCACHE_DIR="/mnt/.ccache/"
+
+# User of OBS, defined to same UID on all build hosts (and storage server)
+CCACHE_USER=abuild
+
 cleanfilter() {
     grep "$CLEANHOST" | awk '{print $13" "$11}' \
     | while IFS=' :'  read B P T F \
@@ -35,10 +42,10 @@ cleanfilter() {
         echo "$P $F"
         [ -n "$P" ] && {
             if $CHECKPROC && [ -d "/proc/$P/" ] ; then
-                echo "=== SKIP '/mnt/.ccache/$F' : process $P still alive on $CLEANHOST"
+                echo "=== SKIP '${CCACHE_DIR}/$F' : process $P still alive on $CLEANHOST"
             else
-                echo "=== rm -f '/mnt/.ccache/$F'"
-                rm -f "/mnt/.ccache/$F"
+                echo "=== rm -f '${CCACHE_DIR}/$F'"
+                rm -f "${CCACHE_DIR}/$F"
             fi
         }
     done
@@ -90,19 +97,19 @@ hostnamefilter_newest() (
 # Subprocesses for "cd"
 # Find immediate subdirs
 list_two() (
-    cd /mnt/.ccache && find . -maxdepth 2 -name '*.lock' -ls
+    cd ${CCACHE_DIR} && find . -maxdepth 2 -name '*.lock' -ls
 )
 
 # Subprocesses for "cd"
 # Dig deeper
 list_all() (
-    cd /mnt/.ccache && find . -name '*.lock' -ls
+    cd ${CCACHE_DIR} && find . -name '*.lock' -ls
 )
 
 listing_header() {
     echo "If a hostname is reported more than a couple times, likely a stale file blocks others"
-    echo "Then preferably:   ssh abuild@'<HOSTNAME>' '/mnt/.ccache/ccache-cleanlock.sh'"
-    echo "Or worse on bios-backup:  CLEANHOST='<HOSTNAME>' CHECKPROC=false /mnt/.ccache/ccache-cleanlock.sh"
+    echo "Then preferably:   ssh ${CCACHE_USER}@'<HOSTNAME>' '${CCACHE_DIR}/ccache-cleanlock.sh'"
+    echo "Or worse on bios-backup:  CLEANHOST='<HOSTNAME>' CHECKPROC=false ${CCACHE_DIR}/ccache-cleanlock.sh"
     echo "Note that such clean up can take a LONG WHILE"
     echo ""
     echo "Looking for existing lock files in $1 subdir levels ..."
