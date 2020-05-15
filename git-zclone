@@ -25,7 +25,7 @@
 ### just the fresh repository.
 ### Also note that this did not yet intend to support cloning of bare repos.
 ###
-### Copyright (C) 2013-2018 by Jim Klimov <jim@jimklimov.com>, License: MIT
+### Copyright (C) 2013-2020 by Jim Klimov <jim@jimklimov.com>, License: MIT
 ###     https://github.com/jimklimov/git-scripts
 
 do_git_zfs_clone() {
@@ -76,7 +76,7 @@ EOH
 }
 
 # Verify that we have a usable ZFS command
-zfs --help 2>&1 | egrep -i 'dataset|snapshot|clone|volume' >/dev/null || \
+zfs --help 2>&1 | GREP_OPTIONS= egrep -i 'dataset|snapshot|clone|volume' >/dev/null || \
 	{ usage; echo "FATAL: No suitable 'zfs' command found!" >&2 && return 2; }
 
 # Currently we accept at least two CLI parameters: FROM and DEST
@@ -116,7 +116,7 @@ case "$FROM" in
 		[ ! -d "$FROM/.zfs/snapshot" ] && \
 			echo "Required: FROM must be a ZFS POSIX dataset" >&2 && return 1
 
-		FROMDS="`cd "$FROMPATH" && /bin/df -k . | grep / | head -1 | awk '{print $1}'`" || \
+		FROMDS="`cd "$FROMPATH" && /bin/df -k . | GREP_OPTIONS= grep / | head -1 | awk '{print $1}'`" || \
 			FROMDS=""
 		[ -n "$FROMDS" ] && [ "$FROMDS" != '-' ] || \
 			{ echo "Required: FROM must be a mounted ZFS POSIX dataset" >&2 && \
@@ -150,7 +150,7 @@ BAD=no
 if [ -n "$DEST" ] && [ -e "$DEST" ]; then
 	BAD=yes
 	[ -d "$DEST" ] && \
-		( cd "$DEST" && [ x"`find . 2>/dev/null | grep -v ./.zfs`" = x. ] ) && \
+		( cd "$DEST" && [ x"`find . 2>/dev/null | GREP_OPTIONS= grep -v ./.zfs`" = x. ] ) && \
 		BAD=no
 fi
 [ x"$BAD" = xyes ] && \
@@ -219,14 +219,14 @@ DESTDS=""
 DESTMPT=""
 if [ -d "$DESTPATH/.zfs/snapshot" ]; then
 	# This seems like a dataset already? Would be fatal later on for LOCAL.
-	DESTDS="`cd "$DESTPATH" && /bin/df -k . | grep / | head -1 | awk '{print $1}'`" && \
+	DESTDS="`cd "$DESTPATH" && /bin/df -k . | GREP_OPTIONS= grep / | head -1 | awk '{print $1}'`" && \
 	[ "$DESTDS" != '-' ] || \
 	DESTDS=""
 fi
 
 if [ -z "$DESTDS" -a -d "$DESTPATH/../.zfs/snapshot" ]; then
 	# The (future) direct parent of DEST is a dataset?
-	DESTDS="`cd "$DESTPATH/.." && /bin/df -k . | grep / | head -1 | awk '{print $1}'`"/"`basename "$DESTPATH"`" || \
+	DESTDS="`cd "$DESTPATH/.." && /bin/df -k . | GREP_OPTIONS= grep / | head -1 | awk '{print $1}'`"/"`basename "$DESTPATH"`" || \
 	DESTDS=""
 
 	[ x"`basename "$DESTPATH"`" != x"`basename "$DEST"`" ] && \
@@ -244,7 +244,7 @@ if [ -z "$DESTDS" ]; then
 		;;
 	URL)
 		# Finally, try to spawn the clone under current directory's dataset
-		DESTDS="`/bin/df -k . | grep / | head -1 | awk '{print $1}'`/`basename "$DESTPATH"`" || \
+		DESTDS="`/bin/df -k . | GREP_OPTIONS= grep / | head -1 | awk '{print $1}'`/`basename "$DESTPATH"`" || \
 		DESTDS=""
 		[ x"`pwd`/`basename "$DEST"`" != x"$DESTPATH" ] && \
 			DESTMPT="$DESTPATH"
@@ -294,8 +294,8 @@ case "$FROM_TYPE" in
 
 		echo "=== Trying to carry over some properties of the source dataset..."
 		EXCLUDE_ATTRS='canmount|mountpoint'
-		zfs get all "$FROMDS" | egrep ' (local|received)$' | \
-			egrep -v "$EXCLUDE_ATTRS" | while read _D A V _T; do \
+		zfs get all "$FROMDS" | GREP_OPTIONS= egrep ' (local|received)$' | \
+			GREP_OPTIONS= egrep -v "$EXCLUDE_ATTRS" | while read _D A V _T; do \
 				echo "$A=$V"; zfs set "$A=$V" "$DESTDS"; \
 			done
 		# TODO: zfs allow permissions if set directly on FROMDS?
@@ -382,7 +382,7 @@ esac
 if [ -n "$REMOTE_UPSTREAM" ]; then
 	echo ""
 	echo "=== Setting Git 'upstream' of the new repo to be '$REMOTE_UPSTREAM'"
-	OLD_UPSTREAM="`cd "$DESTPATH" && git remote -v | grep -w upstream`" 2>/dev/null \
+	OLD_UPSTREAM="`cd "$DESTPATH" && git remote -v | GREP_OPTIONS= grep -w upstream`" 2>/dev/null \
 		&& [ -n "$OLD_UPSTREAM" ] || OLD_UPSTREAM=""
 	[ -n "$OLD_UPSTREAM" ] && \
 		echo "=== Old Git 'upstream' setup defined in the new repo was:" && \
@@ -458,7 +458,7 @@ echo "=== Resulting known branches and remote repos:"
 ( cd "$DESTPATH" && git remote -v ) || RES=$?
 ( cd "$DESTPATH" && git branch -a ) || RES=$?
 ( echo ""; echo "=== Current branch:"
-  cd "$DESTPATH" && git branch -a | egrep '^\* ' ) || RES=$?
+  cd "$DESTPATH" && git branch -a | GREP_OPTIONS= egrep '^\* ' ) || RES=$?
 
 echo ""
 echo "=== SUCCESS: git zclone '$FROM' '$DEST':" \
