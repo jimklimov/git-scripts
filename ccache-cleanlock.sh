@@ -35,6 +35,12 @@ TOO_OLD=120
 # User of OBS, defined to same UID on all build hosts (and storage server)
 CCACHE_USER=abuild
 
+# GNU date with '-d' is needed
+GDATE="$(which gdate 2>/dev/null)"
+if [ -z "$GDATE" ] || [ ! -x "$GDATE" ]; then
+    GDATE=date # Hope for the best
+fi
+
 cleanfilter() {
     grep "$CLEANHOST" | awk '{print $13" "$11}' \
     | while IFS=' :'  read B P T F \
@@ -75,16 +81,16 @@ hostnamefilter_newest() (
         done
         if [ "${#HOSTNAMES_COUNT[@]}" -gt 0 ]; then
             for B in "$( echo "${!HOSTNAMES_COUNT[@]}" | tr ' ' '\n' | sort )"; do
-                printf '%6d\t%s\t%s\t%s\n' "${HOSTNAMES_COUNT[$B]}" "${HOSTNAMES_LATEST[$B]}" "`date -u -d '1970-01-01 + '"${HOSTNAMES_LATEST[$B]}"' sec'`" "$B"
+                printf '%6d\t%s\t%s\t%s\n' "${HOSTNAMES_COUNT[$B]}" "${HOSTNAMES_LATEST[$B]}" "`${GDATE} -u -d '1970-01-01 + '"${HOSTNAMES_LATEST[$B]}"' sec'`" "$B"
             done
-            NOW="`date -u +%s`"
-            printf '\n  NOW:\t%s\t%s\n' "$NOW"  "`date -u -d '1970-01-01 + '"$NOW"' sec'`"
+            NOW="`${GDATE} -u +%s`"
+            printf '\n  NOW:\t%s\t%s\n' "$NOW"  "`${GDATE} -u -d '1970-01-01 + '"$NOW"' sec'`"
             if [ "$LATEST" -gt -1 ] ; then
-                printf 'LATEST:\t%s\t%s\t~%s\n'  "$LATEST" "`date -u -d '1970-01-01 + '"$LATEST"' sec'`" "$(($NOW - $LATEST))"
+                printf 'LATEST:\t%s\t%s\t~%s\n'  "$LATEST" "`${GDATE} -u -d '1970-01-01 + '"$LATEST"' sec'`" "$(($NOW - $LATEST))"
                 if [ "$(($NOW - $LATEST))" -gt "$TOO_OLD" ] ; then RES=42 ; fi
             fi
             if [ "$OLDEST" -gt -1 ] ; then
-                printf 'OLDEST:\t%s\t%s\t~%s\n'  "$OLDEST" "`date -u -d '1970-01-01 + '"$OLDEST"' sec'`" "$(($NOW - $OLDEST))"
+                printf 'OLDEST:\t%s\t%s\t~%s\n'  "$OLDEST" "`${GDATE} -u -d '1970-01-01 + '"$OLDEST"' sec'`" "$(($NOW - $OLDEST))"
                 if [ "$(($NOW - $OLDEST))" -gt "$TOO_OLD" ] ; then RES=42 ; fi
             fi
             if [ "$RES" = 0 ]; then
