@@ -64,8 +64,14 @@ hostnamefilter() {
 
 hostnamefilter_newest() (
     set +o pipefail
-    #  ui-builder-nodev6-11:933:1587486802
-    sed 's,^.*\.lock -> \([^ ]*\)\(\| .*$\),\1,' | grep : | \
+    # pick out names like  ui-builder-nodev6-11:933:1587486802 from stdin listing
+    TABCHAR="`printf '\t'`"
+    #TABCHAR='\t'
+    sed -e 's,^.*\.lock ->,,' \
+        -e 's,^[ '"${TABCHAR}"']*,,g' \
+        -e 's,[ '"${TABCHAR}"']*$,,g' \
+        -e 's,^\([^ '"${TABCHAR}"']*\)[ '"${TABCHAR}"'].*$,\1,' \
+    | grep : | \
     (
         declare -A HOSTNAMES_COUNT
         declare -A HOSTNAMES_LATEST
@@ -80,7 +86,7 @@ hostnamefilter_newest() (
             if [ "$T" -lt "$OLDEST" ] || [ "$OLDEST" = -1 ] ; then OLDEST="$T" ; fi
         done
         if [ "${#HOSTNAMES_COUNT[@]}" -gt 0 ]; then
-            for B in "$( echo "${!HOSTNAMES_COUNT[@]}" | tr ' ' '\n' | sort )"; do
+            for B in $( echo "${!HOSTNAMES_COUNT[@]}" | tr ' ' '\n' | sort ); do
                 printf '%6d\t%s\t%s\t%s\n' "${HOSTNAMES_COUNT[$B]}" "${HOSTNAMES_LATEST[$B]}" "`${GDATE} -u -d '1970-01-01 + '"${HOSTNAMES_LATEST[$B]}"' sec'`" "$B"
             done
             NOW="`${GDATE} -u +%s`"
