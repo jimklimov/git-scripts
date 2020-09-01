@@ -152,6 +152,7 @@ do_fetch_repos() {
 }
 
 BIG_RES=0
+DID_UPDATE=false
 LOCK="`dirname $0`/.gitcache.lock"
 cd "`dirname $0`" || exit 1
 
@@ -175,7 +176,10 @@ if [ -z "$SKIP_LOCK" ] ; then
   trap 'rm -rf "$LOCK"' 0 1 2 3 15
 fi
 
+ACTIONS=""
 while [ $# -gt 0 ]; do
+    [ -z "$ACTIONS" ] && ACTIONS="$1" || ACTIONS="$ACTIONS $1"
+
     case "$1" in
         help|-h|--help)
             cat << EOF
@@ -195,19 +199,23 @@ EOF
             ;;
         git@*|ssh://*|https://*|http://*)
             do_register_repo "$1" || BIG_RES=$?
+            DID_UPDATE=true
             ;;
         add)
             do_register_repo "$2" || BIG_RES=$?
+            DID_UPDATE=true
             shift
             ;;
         clone|checkout|co)
             do_register_repo "$2" \
             && do_fetch_repos "$2" \
             || BIG_RES=$?
+            DID_UPDATE=true
             shift
             ;;
         del|delete|remove|rm)
             do_unregister_repo "$2" || BIG_RES=$?
+            DID_UPDATE=true
             shift
             ;;
         fetch|update|pull|up)
@@ -220,8 +228,10 @@ EOF
                 shift
                 do_fetch_repos "$@" || BIG_RES=$?
             fi
+            DID_UPDATE=true
             ;;
         gc) git gc --prune=now || BIG_RES=$?
+            DID_UPDATE=true
             ;;
         *)  echo "ERROR: Unrecognized argument: $1" >&2
             exit 1
@@ -229,5 +239,15 @@ EOF
     esac
     shift
 done
+
+if "$DID_UPDATE" && [ -d ./.zfs ] ; then
+    SNAPDATE="`TZ=UTC date -u +%Y%m%dT%H%M%SZ`" && [ -n "$SNAPNAME" ] \
+    || { SNAPDATE="`date -u +%s`" ; }
+    SNAPNAME="rgc-auto-${SNAPDATE}_res-${BIG_RES}_actions-${ACTIONS}"
+    SNAPNAME="`echo "$SNAPNAME" | tr ' ' '-'`"
+    echo "ZFS: Trying to snapshot `pwd` as '@${SNAPNAME}' ..." >&2
+    mkdir -p .zfs/snapshot/"$SNAPNAME" \
+    || echo "WARNING: Could not 'zfs snapshot'; did you 'zfs allow -ldu $USER snapshot POOL/DATASET/NAME' on the storage server?" >&2
+fi
 
 exit $BIG_RES
