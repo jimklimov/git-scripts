@@ -201,6 +201,8 @@ $0 { list | ls } [REPO...]
 $0 up [-v|-vs|-vp]
 $0 up [-v|-vs|-vp] REPO REPO ...
 where REPO are original remote repository URLs
+$0 { repack | repack-parallel | gc }  => maintenance
+$0 { lock | unlock }  => admin lock to not disturb during maintenance
 EOF
             exit 0
             ;;
@@ -244,6 +246,12 @@ EOF
             DID_UPDATE=true
             ;;
         gc) git gc --prune=now || BIG_RES=$?
+            DID_UPDATE=true
+            ;;
+        repack) git repack -A -d || BIG_RES=$?
+            DID_UPDATE=true
+            ;;
+        repack-parallel) git repack -A -d --threads=0 || BIG_RES=$?
             DID_UPDATE=true
             ;;
         *)  echo "ERROR: Unrecognized argument: $1" >&2
