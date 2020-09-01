@@ -53,7 +53,7 @@ do_register_repo() {
 do_unregister_repo() {
     REPO="$1"
 
-    REPO_IDS="`git remote -v | grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
+    REPO_IDS="`git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
     [ -z "$REPO_IDS" ] && echo "SKIP: Repo '$REPO' not registered" && return 0
 
     RES=0
@@ -137,7 +137,7 @@ do_fetch_repos() {
         -vs|-v)
             shift
             if [ $# = 0 ]; then
-                git remote -v | grep fetch | awk '{print $1" "$2}'
+                git remote -v | GREP_OPTIONS= grep fetch | awk '{print $1" "$2}'
             else
                 do_list_repoids "$@"
             fi | $FETCHER
