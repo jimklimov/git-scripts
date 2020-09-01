@@ -218,10 +218,11 @@ EOF
                 git fetch -f --all --prune --tags
             else
                 shift
-                do_fetch_repos "$@" ; exit $?
+                do_fetch_repos "$@" || BIG_RES=$?
             fi
             ;;
-        gc) git gc --prune=now ;;
+        gc) git gc --prune=now || BIG_RES=$?
+            ;;
         *)  echo "ERROR: Unrecognized argument: $1" >&2
             exit 1
             ;;
