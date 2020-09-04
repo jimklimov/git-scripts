@@ -242,7 +242,7 @@ Usage:
 $0 [add] REPO_URL [REPO_URL...]
 $0 add-recursive REPO_URL [REPO_URL...] => register repo (if not yet), fetch
                             its contents, and do same for submodules (if any)
-$0 { list | ls } [REPO_URL...]
+$0 { list | ls | ls-recursive } [REPO_URL...]
 $0 up [-v|-vs|-vp] [REPO_URL...]      => fetch new commits
 $0 co REPO_URL                        => register + fetch
 $0 del REPO_GLOB                      => unregister
@@ -259,6 +259,10 @@ EOF
         list|ls)
             shift
             do_list_repoids "$@" ; exit $?
+            ;;
+        list-recursive|ls-recursive|lsr)
+            shift
+            do_list_subrepos "$@" ; exit $?
             ;;
         git@*|ssh://*|https://*|http://*)
             do_register_repo "$1" || BIG_RES=$?
