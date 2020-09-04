@@ -45,6 +45,9 @@
 #
 
 do_register_repo() {
+    # REPO is a substring from `git remote` listing,
+    # so technically can be an ID or part of URL
+    # (but only a complete URL makes sense for adding)
     REPO="$1"
     [ -e .git ] || [ -s HEAD ] || ( git init --bare && git config gc.auto 0 ) || exit $?
 
@@ -54,6 +57,8 @@ do_register_repo() {
 }
 
 do_unregister_repo() {
+    # REPO is a substring from `git remote` listing,
+    # so can be part of an ID or URL
     REPO="$1"
 
     REPO_IDS="`git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
@@ -198,13 +203,15 @@ while [ $# -gt 0 ]; do
         help|-h|--help)
             cat << EOF
 Usage:
-$0 [add] REPO REPO ...
-$0 { del | co } REPO_REGEX
-$0 { list | ls } [REPO...]
-$0 up [-v|-vs|-vp]
-$0 up [-v|-vs|-vp] REPO REPO ...
-where REPO are original remote repository URLs
-$0 { repack | repack-parallel | gc }  => maintenance
+$0 [add] REPO_URL [REPO_URL...]
+$0 { list | ls } [REPO_URL...]
+$0 up [-v|-vs|-vp] [REPO_URL...]      => fetch new commits
+$0 co REPO_URL                        => register + fetch
+$0 del REPO_GLOB                      => unregister
+where REPO_URL are original exact remote repository URLs
+and REPO_GLOB matches by substring of 'git remote -v' output
+
+$0 { repack | repack-parallel | gc }  => maintenance operations
 $0 { lock | unlock }  => admin lock to not disturb during maintenance
 EOF
             exit 0
