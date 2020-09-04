@@ -53,6 +53,7 @@ do_register_repo() {
     local REPO
     REPO="$1"
     [ -e .git ] || [ -s HEAD ] || ( git init --bare && git config gc.auto 0 ) || exit $?
+    [ "${REGISTERED_NOW["$REPO"]}" = 1 ] && echo "SKIP: Repo '$REPO' already registered during this run" && return 42
 
     git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
     sleep 1 # ensure unique ID
@@ -69,22 +70,35 @@ do_list_subrepos() {
     | tr -d ' \t' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
 }
 
+declare -A REGISTERED_RECURSIVELY_NOW
 do_register_repos_recursive() {
     # Register each repo URL and dig into all branches' `.gitmodules` file to recurse
     # Note a REPO may be something already registered, then we just look for submodules
-    local REPO HASH SUBREPO
+    local REPO SUBREPO
     local RES=0
+    local _RES=0
+
+    local REPO_LIST
+    declare -a REPO_LIST
+    for REPO in "$@" ; do
+        [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
+        && echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 \
+        || REPO_LIST+=( "$REPO" )
+    done
 
     # First register the nearest-level repos
-    for REPO in "$@" ; do
-        # Register or see it is already here...
-        do_register_repo "$REPO" || { RES=$?; continue ; }
+    for REPO in "${REPO_LIST[@]}" ; do
+        echo "=== Register '$REPO' or see if it is already here..."
+        do_register_repo "$REPO" || { _RES=$?; [ "${_RES}" = 42 ] || RES="${_RES}"; continue ; }
+        REGISTERED_RECURSIVELY_NOW["$REPO"]=1
         # We need the (recent) contents to look into .gitmodules files later
+        echo "=== Fetch '$REPO' contents..."
         do_fetch_repos "$REPO" || { RES=$?; continue ; }
     done
 
-    # Then look inside
-    for SUBREPO in `do_list_subrepos "$@"`; do
+    # Then look inside for unique submodule URLs
+    for SUBREPO in `do_list_subrepos "${REPO_LIST[@]}"`; do
+        echo "===== Recursively register '$SUBREPO'..."
         do_register_repos_recursive "$SUBREPO" || RES=$?
     done
 
