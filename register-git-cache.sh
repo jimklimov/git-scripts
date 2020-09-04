@@ -61,13 +61,12 @@ do_register_repo() {
 
 do_list_subrepos() {
     ( # List all unique branches etc. known in the repo(s) from argument...
-        TABCHAR="`printf '\t'`"
         for HASH in `for REPO in "$@" ; do git ls-remote "$REPO" | awk '{print $1}' ; done | sort | uniq` ; do
             # From each branch, get a .gitmodules if any and URLs from it
             ( git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url ) &
         done
     wait ) \
-    | sed -e 's,[ '"$TABCHAR"']*,,g' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
+    | tr -d ' \t' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
 }
 
 do_register_repos_recursive() {
