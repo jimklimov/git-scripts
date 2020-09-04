@@ -212,7 +212,7 @@ $0 { list | ls } [REPO_URL...]
 $0 up [-v|-vs|-vp] [REPO_URL...]      => fetch new commits
 $0 co REPO_URL                        => register + fetch
 $0 del REPO_GLOB                      => unregister
-where REPO_URL are original exact remote repository URLs
+where REPO_URL are singular original exact remote repository URLs
 and REPO_GLOB matches by substring of 'git remote -v' output
 
 $0 { repack | repack-parallel | gc }  => maintenance operations
@@ -256,6 +256,7 @@ EOF
             else
                 shift
                 do_fetch_repos "$@" || BIG_RES=$?
+                shift $#
             fi
             DID_UPDATE=true
             ;;
