@@ -91,9 +91,13 @@ do_register_repos_recursive() {
         echo "=== Register '$REPO' or see if it is already here..."
         do_register_repo "$REPO" || { _RES=$?; [ "${_RES}" = 42 ] || RES="${_RES}"; continue ; }
         REGISTERED_RECURSIVELY_NOW["$REPO"]=1
-        # We need the (recent) contents to look into .gitmodules files later
-        echo "=== Fetch '$REPO' contents..."
-        do_fetch_repos "$REPO" || { RES=$?; continue ; }
+        if [ "$DO_FETCH" = false ] && [ "${REGISTERED_NOW["$REPO"]}" != 1 ] ; then
+            echo "=== Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..."
+        else
+            # We need the (recent) contents to look into .gitmodules files later
+            echo "=== Fetch '$REPO' contents..."
+            do_fetch_repos "$REPO" || { RES=$?; continue ; }
+        fi
     done
 
     # Then look inside for unique submodule URLs
