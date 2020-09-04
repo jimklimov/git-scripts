@@ -60,14 +60,13 @@ do_register_repo() {
 }
 
 do_list_subrepos() {
-    local REPO HASH
-    for REPO in "$@" ; do
-        # List all branches etc. known in the repo...
-        for HASH in `git ls-remote "$REPO" | awk '{print $1}'` ; do
+    ( # List all unique branches etc. known in the repo(s) from argument...
+        for HASH in `for REPO in "$@" ; do git ls-remote "$REPO" | awk '{print $1}' ; done | sort | uniq` ; do
             # From each branch, get a .gitmodules if any and URLs from it
             ( git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url ) &
         done
-    done | sed -e 's,[ \t]*,,g' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
+    wait ) \
+    | sed -e 's,[ \t]*,,g' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
 }
 
 do_register_repos_recursive() {
