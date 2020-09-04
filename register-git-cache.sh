@@ -46,8 +46,9 @@
 
 do_register_repo() {
     # REPO is a substring from `git remote` listing,
-    # so technically can be an ID or part of URL
-    # (but only a complete URL makes sense for adding)
+    # so technically can be an ID or part of URL (but
+    # only a single complete URL makes sense for adding)
+    local REPO
     REPO="$1"
     [ -e .git ] || [ -s HEAD ] || ( git init --bare && git config gc.auto 0 ) || exit $?
 
@@ -59,6 +60,7 @@ do_register_repo() {
 do_unregister_repo() {
     # REPO is a substring from `git remote` listing,
     # so can be part of an ID or URL
+    local REPO
     REPO="$1"
 
     REPO_IDS="`git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
