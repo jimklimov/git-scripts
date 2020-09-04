@@ -1,4 +1,7 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+# NOTE: bash syntax used, e.g. `;&` to fall through case statements
+# Does not work in other /bin/sh handlers like dash!
 
 # This script manages registration of remote git repositories
 # in the current single workspace, to help faster CI clones
