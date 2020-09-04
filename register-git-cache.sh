@@ -230,7 +230,7 @@ if [ -z "$SKIP_LOCK" ] ; then
         fi
     else
         if [ -n "$OLDPID" ] && [ "$OLDPID" -gt 0 ] ; then
-            echo "LOCKED by PID $OLDPID on $OLDHOST, waiting (export SKIP_LOCK=true to bypass in safe conditions)..."
+            echo "LOCKED by PID $OLDPID on $OLDHOST, waiting (export SKIP_LOCK=true to bypass in safe conditions)..." >&2
             if [ "$OLDHOST" = "`hostname`" ]; then
                 if [ ! -d "/proc/$OLDPID" ]; then
                     echo "I am `hostname` and '/proc/$OLDPID' is absent, removing lock and waiting for up to 15 sec (maybe other copies will kick in)..."
