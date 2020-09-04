@@ -59,6 +59,39 @@ do_register_repo() {
     git remote add "repo-`date -u +%s`" "$REPO" && echo "OK: Registered repo '$REPO'" && REGISTERED_NOW["$REPO"]=1
 }
 
+do_list_subrepos() {
+    local REPO HASH
+    for REPO in "$@" ; do
+        # List all branches etc. known in the repo...
+        for HASH in `git ls-remote "$REPO" | awk '{print $1}'` ; do
+            # From each branch, get a .gitmodules if any and URLs from it
+            ( git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url ) &
+        done
+    done | sed -e 's,[ \t]*,,g' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
+}
+
+do_register_repos_recursive() {
+    # Register each repo URL and dig into all branches' `.gitmodules` file to recurse
+    # Note a REPO may be something already registered, then we just look for submodules
+    local REPO HASH SUBREPO
+    local RES=0
+
+    # First register the nearest-level repos
+    for REPO in "$@" ; do
+        # Register or see it is already here...
+        do_register_repo "$REPO" || { RES=$?; continue ; }
+        # We need the (recent) contents to look into .gitmodules files later
+        do_fetch_repos "$REPO" || { RES=$?; continue ; }
+    done
+
+    # Then look inside
+    for SUBREPO in `do_list_subrepos "$@"`; do
+        do_register_repos_recursive "$SUBREPO" || RES=$?
+    done
+
+    return $RES
+}
+
 do_unregister_repo() {
     # REPO is a substring from `git remote` listing,
     # so can be part of an ID or URL
@@ -208,6 +241,8 @@ while [ $# -gt 0 ]; do
             cat << EOF
 Usage:
 $0 [add] REPO_URL [REPO_URL...]
+$0 add-recursive REPO_URL [REPO_URL...] => register repo (if not yet), fetch
+                            its contents, and do same for submodules (if any)
 $0 { list | ls } [REPO_URL...]
 $0 up [-v|-vs|-vp] [REPO_URL...]      => fetch new commits
 $0 co REPO_URL                        => register + fetch
@@ -234,6 +269,13 @@ EOF
             do_register_repo "$2" || BIG_RES=$?
             DID_UPDATE=true
             shift
+            ;;
+        add-recursive)
+            shift
+            # Note: also fetches contents to dig into submodules
+            do_register_repos_recursive "$@" || BIG_RES=$?
+            DID_UPDATE=true
+            shift $#
             ;;
         clone|checkout|co)
             do_register_repo "$2" \
