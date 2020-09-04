@@ -44,6 +44,8 @@
 # Original development tracked at https://github.com/jimklimov/git-scripts
 #
 
+# Track unique repos we have registered now
+declare -A REGISTERED_NOW
 do_register_repo() {
     # REPO is a substring from `git remote` listing,
     # so technically can be an ID or part of URL (but
@@ -54,7 +56,7 @@ do_register_repo() {
 
     git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
     sleep 1 # ensure unique ID
-    git remote add "repo-`date -u +%s`" "$REPO" && echo "OK: Registered repo '$REPO'"
+    git remote add "repo-`date -u +%s`" "$REPO" && echo "OK: Registered repo '$REPO'" && REGISTERED_NOW["$REPO"]=1
 }
 
 do_unregister_repo() {
@@ -281,6 +283,10 @@ if "$DID_UPDATE" && [ -d ./.zfs ] ; then
     echo "ZFS: Trying to snapshot `pwd` as '@${SNAPNAME}' ..." >&2
     mkdir -p .zfs/snapshot/"$SNAPNAME" \
     || echo "WARNING: Could not 'zfs snapshot'; did you 'zfs allow -ldu $USER snapshot POOL/DATASET/NAME' on the storage server?" >&2
+fi
+
+if [ "${#REGISTERED_NOW[@]}" -gt 0 ]; then
+    echo "During this run, registered the following new REPO_URL(s): ${!REGISTERED_NOW[@]}"
 fi
 
 exit $BIG_RES
