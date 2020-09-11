@@ -60,9 +60,13 @@ do_register_repo() {
     git remote add "repo-`date -u +%s`" "$REPO" && echo "OK: Registered repo '$REPO'" && REGISTERED_NOW["$REPO"]=1
 }
 
+do_list_remotes() {
+    (for REPO in "$@" ; do git ls-remote "$REPO" | awk '{print $1}' & done ; wait) | sort | uniq
+}
+
 do_list_subrepos() {
     ( # List all unique branches etc. known in the repo(s) from argument...
-        for HASH in `(for REPO in "$@" ; do git ls-remote "$REPO" | awk '{print $1}' & done ; wait) | sort | uniq` ; do
+        for HASH in `do_list_remotes "$@"` ; do
             # From each branch, get a .gitmodules if any and URLs from it
             ( git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url ) &
         done
