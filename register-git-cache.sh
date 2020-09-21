@@ -85,20 +85,39 @@ do_register_repos_recursive() {
     local REPO SUBREPO
     local RES=0
     local _RES=0
+    local RECURSE_MODE="all"
 
-    local REPO_LIST
+    if [ $# = 0 ]; then return 0; fi
+
+    case "$1" in
+        all|new) RECURSE_MODE="$1"; shift ;;
+    esac
+
+    local REPO_LIST TOPREPO_LIST
     declare -a REPO_LIST
+    declare -a TOPREPO_LIST
     for REPO in "$@" ; do
         [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
         && echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 \
-        || REPO_LIST+=( "$REPO" )
+        || TOPREPO_LIST+=( "$REPO" )
     done
 
     # First register the nearest-level repos
-    for REPO in "${REPO_LIST[@]}" ; do
+    for REPO in "${TOPREPO_LIST[@]}" ; do
         echo "=== Register '$REPO' or see if it is already here..."
         do_register_repo "$REPO" || { _RES=$?; [ "${_RES}" = 42 ] || RES="${_RES}"; continue ; }
         REGISTERED_RECURSIVELY_NOW["$REPO"]=1
+
+        case "$RECURSE_MODE" in
+            new) # we would only recurse into repo URLs previously not known
+                if [ "${REGISTERED_NOW["$REPO"]}" = 1 ] ; then
+                    REPO_LIST+=( "$REPO" )
+                fi
+                ;;
+            all) # will recurse into all known repos to check for new branches etc.
+                REPO_LIST+=( "$REPO" ) ;;
+        esac
+
         if [ "$DO_FETCH" = false ] && [ "${REGISTERED_NOW["$REPO"]}" != 1 ] ; then
             echo "=== Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..."
         else
@@ -111,7 +130,7 @@ do_register_repos_recursive() {
     # Then look inside for unique submodule URLs
     for SUBREPO in `do_list_subrepos "${REPO_LIST[@]}"`; do
         echo "===== Recursively register '$SUBREPO'..."
-        do_register_repos_recursive "$SUBREPO" || RES=$?
+        do_register_repos_recursive "$RECURSE_MODE" "$SUBREPO" || RES=$?
     done
 
     return $RES
@@ -266,8 +285,8 @@ while [ $# -gt 0 ]; do
             cat << EOF
 Usage:
 $0 [add] REPO_URL [REPO_URL...]
-$0 add-recursive REPO_URL [REPO_URL...] => register repo (if not yet), fetch
-                            its contents, and do same for submodules (if any)
+$0 add-recursive [new|all] REPO_URL [REPO_URL...] => register repo (if not yet),
+                            fetch its contents, and do same for submodules (if any)
 $0 { list | ls | ls-recursive } [REPO_URL...]
 $0 up [-v|-vs|-vp] [REPO_URL...]      => fetch new commits
 $0 co REPO_URL                        => register + fetch
