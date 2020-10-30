@@ -44,6 +44,11 @@
 # Original development tracked at https://github.com/jimklimov/git-scripts
 #
 
+# This file can list line by line shell-glob (case) patterns to avoid addition
+# of certain URLs (e.g. by automated jobs parsing a history of build setups,
+# including references to SCM server instances that no longer exist).
+EXCEPT_PATTERNS_FILE="`dirname $0`/.except"
+
 # Track unique repos we have registered now
 declare -A REGISTERED_NOW
 do_register_repo() {
@@ -56,6 +61,16 @@ do_register_repo() {
         ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
           git init --bare && git config gc.auto 0 ) || exit $?
     [ "${REGISTERED_NOW["$REPO"]}" = 1 ] && echo "SKIP: Repo '$REPO' already registered during this run" && return 42
+
+    if [ -s "$EXCEPT_PATTERNS_FILE" ] ; then
+        while read PAT ; do
+            [ -n "$PAT" ] || continue
+            case "$REPO" in
+                "#"*) continue ;;
+                $PAT) echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" ; return 0 ;;
+            esac
+        done < "$EXCEPT_PATTERNS_FILE"
+    fi
 
     git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
     sleep 1 # ensure unique ID
