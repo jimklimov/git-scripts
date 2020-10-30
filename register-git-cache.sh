@@ -200,6 +200,8 @@ do_list_repoids() {
     git remote -v | while read R U M ; do
         [ "$M" = '(fetch)' ] && \
         U_LC="`lc "$U"`" && \
+        { is_repo_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
+        } && \
         if [ $# = 0 ]; then
             printf '%s\t%s\n' "$R" "$U"
         else
@@ -219,6 +221,8 @@ do_fetch_repos_verbose_seq() (
     while read R U ; do
         [ -n "$U" ] || U="$R"
         echo "=== $U ($R):"
+        is_repo_excluded "$U" || continue # not a fatal error, just a skip (reported there)
+
         git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
         && git fetch -f --tags --progress "$R" \
         || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
@@ -235,6 +239,8 @@ do_fetch_repos_verbose_par() (
     RES=0
     while read R U ; do
         [ -n "$U" ] || U="$R"
+        is_repo_excluded "$U" || continue # not a fatal error, just a skip (reported there)
+
         echo "=== Starting $U ($R) in background..."
         ( git fetch -f "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
           && git fetch -f --tags "$R" \
@@ -370,6 +376,7 @@ EOF
             if [ "$#" = 1 ]; then
                 lower_priority
                 # Note: -jN parallelizes submodules, not remotes
+                # Note: this can bypass EXCEPT_PATTERNS_FILE
                 git fetch -f --all -j8 --prune --tags 2>/dev/null || \
                 git fetch -f --all --prune --tags
             else
