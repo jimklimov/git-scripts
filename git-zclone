@@ -309,10 +309,12 @@ case "$FROM_TYPE" in
 			echo "Creating new DEST ZFS dataset $DESTDS for this repository clone..."
 			zfs create "$DESTDS" || \
 			{ RES=$?
-			  echo "FATAL: Could not create the dataset '$DESTDS'"
+			  echo "FATAL: Could not create the dataset '$DESTDS' !"
 			  echo "Please make sure that dataset name is valid and that proper 'zfs allow'"
 			  echo "permissions were set on destination container dataset, e.g. at least:"
 			  echo "  sudo zfs allow -ldu $USER clone,create,destroy,diff,mount,promote,rollback,snapshot,share,sharenfs,sharesmb,canmount,mountpoint `dirname $DESTDS`"
+			  echo "You may also want to ensure that your parent datasets propagate compression"
+			  echo "and other useful settings to their descendants."
 			  return $RES; } >&2
 		fi
 		;;
