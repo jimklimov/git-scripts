@@ -39,7 +39,7 @@
 # * the advanced option to use a reference repo is only applied during
 #   cloning - existing workspaces must be remade to try it out
 #
-# Copyright 2018 (C) Jim Klimov <jimklimov@gmail.com>
+# Copyright 2018-2020 (C) Jim Klimov <jimklimov@gmail.com>
 # Shared on the terms of MIT license.
 # Original development tracked at https://github.com/jimklimov/git-scripts
 #
@@ -52,7 +52,9 @@ do_register_repo() {
     # only a single complete URL makes sense for adding)
     local REPO
     REPO="$1"
-    [ -e .git ] || [ -s HEAD ] || ( git init --bare && git config gc.auto 0 ) || exit $?
+    [ -e .git ] || [ -s HEAD ] || \
+        ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
+          git init --bare && git config gc.auto 0 ) || exit $?
     [ "${REGISTERED_NOW["$REPO"]}" = 1 ] && echo "SKIP: Repo '$REPO' already registered during this run" && return 42
 
     git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
