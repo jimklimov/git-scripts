@@ -306,6 +306,7 @@ case "$FROM_TYPE" in
 		if zfs list -o name "$DESTDS" >/dev/null 2>&1 ; then
 			echo "NOTE: DEST ZFS dataset $DESTDS already exists (and is empty)"
 		else
+			echo "Creating new DEST ZFS dataset $DESTDS for this repository clone..."
 			zfs create "$DESTDS" || \
 			{ RES=$?
 			  echo "FATAL: Could not create the dataset '$DESTDS'"
