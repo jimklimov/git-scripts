@@ -176,6 +176,7 @@ do_unregister_repo() {
 
     RES=0
     for REPO_ID in $REPO_IDS ; do
+        echo "=== Unregistering repository ID '$REPO_ID' ..."
         git remote remove "$REPO_ID" || RES=$?
     done
     return $RES
