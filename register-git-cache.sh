@@ -49,6 +49,27 @@
 # including references to SCM server instances that no longer exist).
 EXCEPT_PATTERNS_FILE="`dirname $0`/.except"
 
+is_repo_excluded() {
+    local REPO
+    REPO="$1"
+
+    if [ ! -s "$EXCEPT_PATTERNS_FILE" ] ; then
+        # No exceptions
+        return 0
+    fi
+
+    while read PAT ; do
+        [ -n "$PAT" ] || continue
+        case "$REPO" in
+            "#"*) continue ;;
+            $PAT) echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" ; return 1 ;;
+        esac
+    done < "$EXCEPT_PATTERNS_FILE"
+
+    # None of defined exceptions matched this repo
+    return 0
+}
+
 # Track unique repos we have registered now
 declare -A REGISTERED_NOW
 do_register_repo() {
@@ -62,16 +83,7 @@ do_register_repo() {
           git init --bare && git config gc.auto 0 ) || exit $?
     [ "${REGISTERED_NOW["$REPO"]}" = 1 ] && echo "SKIP: Repo '$REPO' already registered during this run" && return 42
 
-    if [ -s "$EXCEPT_PATTERNS_FILE" ] ; then
-        while read PAT ; do
-            [ -n "$PAT" ] || continue
-            case "$REPO" in
-                "#"*) continue ;;
-                $PAT) echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" ; return 0 ;;
-            esac
-        done < "$EXCEPT_PATTERNS_FILE"
-    fi
-
+    is_repo_excluded "$REPO" || return 0 # not a fatal error, just a skip (reported there)
     git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
     sleep 1 # ensure unique ID
     git remote add "repo-`date -u +%s`" "$REPO" && echo "OK: Registered repo '$REPO'" && REGISTERED_NOW["$REPO"]=1
