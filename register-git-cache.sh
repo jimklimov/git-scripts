@@ -54,6 +54,7 @@ fi
 EXCEPT_PATTERNS_FILE="`dirname $0`/.except"
 
 is_repo_excluded() {
+    # Returns 0 if we can go on registering/processing; 1 to skip this repo
     local REPO
     REPO="$1"
 
@@ -132,7 +133,8 @@ do_register_repos_recursive() {
     for REPO in "$@" ; do
         [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
         && echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 \
-        || TOPREPO_LIST+=( "$REPO" )
+        || { is_repo_excluded "$REPO" && TOPREPO_LIST+=( "$REPO" ) ; }
+        # Note: is_repo_excluded() returns 0 to go on processing the repo
     done
 
     # First register the nearest-level repos
