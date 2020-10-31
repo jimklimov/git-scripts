@@ -67,7 +67,7 @@ is_repo_excluded() {
         [ -n "$PAT" ] || continue
         case "$REPO" in
             "#"*) continue ;;
-            $PAT) echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" ; return 1 ;;
+            $PAT) echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2 ; return 1 ;;
         esac
     done < "$EXCEPT_PATTERNS_FILE"
 
