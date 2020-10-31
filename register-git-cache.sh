@@ -58,7 +58,7 @@ is_repo_excluded() {
     local REPO
     REPO="$1"
 
-    if [ ! -s "$EXCEPT_PATTERNS_FILE" ] ; then
+    if [ ! -s "$EXCEPT_PATTERNS_FILE" ] || [ "$SKIP_EXCEPT_PATTERNS_FILE" = true ] ; then
         # No exceptions
         return 0
     fi
