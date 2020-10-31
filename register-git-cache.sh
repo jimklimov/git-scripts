@@ -97,6 +97,7 @@ do_register_repo() {
 do_list_remotes() {
     ( for REPO in "$@" ; do
         echo "===== Listing remotes of '$REPO'..." >&2
+        is_repo_excluded "$REPO" || continue # not a fatal error, just a skip (reported there)
         git ls-remote "$REPO" | awk '{print $1}' &
       done ; wait) | sort | uniq
 }
