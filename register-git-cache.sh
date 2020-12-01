@@ -52,6 +52,7 @@ fi
 # of certain URLs (e.g. by automated jobs parsing a history of build setups,
 # including references to SCM server instances that no longer exist).
 EXCEPT_PATTERNS_FILE="`dirname $0`/.except"
+[ -n "${QUIET_SKIP-}" ] || QUIET_SKIP=no
 
 is_repo_excluded() {
     # Returns 0 if we can go on registering/processing; 1 to skip this repo
@@ -67,7 +68,7 @@ is_repo_excluded() {
         [ -n "$PAT" ] || continue
         case "$REPO" in
             "#"*) continue ;;
-            $PAT) echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2 ; return 1 ;;
+            $PAT) [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2 ; return 1 ;;
         esac
     done < "$EXCEPT_PATTERNS_FILE"
 
@@ -86,7 +87,10 @@ do_register_repo() {
     [ -e .git ] || [ -s HEAD ] || \
         ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
           git init --bare && git config gc.auto 0 ) || exit $?
-    [ "${REGISTERED_NOW["$REPO"]}" = 1 ] && echo "SKIP: Repo '$REPO' already registered during this run" && return 42
+
+    [ "${REGISTERED_NOW["$REPO"]}" = 1 ] \
+        && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' already registered during this run" ; } \
+        && return 42
 
     is_repo_excluded "$REPO" || return 0 # not a fatal error, just a skip (reported there)
     git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
@@ -133,7 +137,7 @@ do_register_repos_recursive() {
     declare -a TOPREPO_LIST
     for REPO in "$@" ; do
         [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
-        && echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 \
+        && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 ; } \
         || { is_repo_excluded "$REPO" && TOPREPO_LIST+=( "$REPO" ) ; }
         # Note: is_repo_excluded() returns 0 to go on processing the repo
     done
@@ -346,11 +350,19 @@ EOF
         lock) echo "admin-lock" > "$LOCK" ;;
         list|ls)
             shift
-            do_list_repoids "$@" ; exit $?
+            if [ "$#" = 0 ]; then
+                do_list_repoids ; exit $?
+            else
+                QUIET_SKIP=yes do_list_repoids "$@" ; exit $?
+            fi
             ;;
         list-recursive|ls-recursive|lsr)
             shift
-            do_list_subrepos "$@" ; exit $?
+            if [ "$#" = 0 ]; then
+                do_list_subrepos ; exit $?
+            else
+                QUIET_SKIP=yes do_list_subrepos "$@" ; exit $?
+            fi
             ;;
         git@*|ssh://*|https://*|http://*)
             do_register_repo "$1" || BIG_RES=$?
@@ -389,7 +401,7 @@ EOF
                 git fetch -f --all --prune --tags
             else
                 shift
-                do_fetch_repos "$@" || BIG_RES=$?
+                QUIET_SKIP=yes do_fetch_repos "$@" || BIG_RES=$?
                 shift $#
             fi
             DID_UPDATE=true
