@@ -209,7 +209,13 @@ do_list_repoids() {
     # (.git extension included) though case-insensitively to be listed.
     # Returns the git remote repo names (e.g. repo-1536929947 here) and
     # the original URL.
-    git remote -v | while read R U M ; do
+    git remote -v | \
+    ( if [ $# = 0 ]; then cat ; else
+        RE="$1"; shift; while [ $# -gt 0 ]; do RE="${RE}|${1}"; shift; done
+        grep -E "$RE"
+      fi
+    ) | \
+    while read R U M ; do
         [ "$M" = '(fetch)' ] && \
         U_LC="`lc "$U"`" && \
         { is_repo_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
