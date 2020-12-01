@@ -308,16 +308,16 @@ if [ -z "$SKIP_LOCK" ] ; then
     OLDHOST="`head -2 "$LOCK" | tail -1`"
     if [ "$OLDPID" = "admin-lock" ] ; then
         if [ "$1" = "unlock" ]; then
-            echo "WAS LOCKED by administrator on $OLDHOST, unlocking now..." >&2
+            echo "`date -u`: [$$]: WAS LOCKED by administrator on $OLDHOST, unlocking now..." >&2
             rm -f "$LOCK"
             shift
         else
-            echo "LOCKED by administrator on $OLDHOST, use '$0 unlock' to clear this lock" >&2
+            echo "`date -u`: [$$]: LOCKED by administrator on $OLDHOST, use '$0 unlock' to clear this lock" >&2
             sleep 1
         fi
     else
         if [ -n "$OLDPID" ] && [ "$OLDPID" -gt 0 ] ; then
-            echo "LOCKED by PID $OLDPID on $OLDHOST, waiting (export SKIP_LOCK=true to bypass in safe conditions)..." >&2
+            echo "`date -u`: [$$]: LOCKED by PID $OLDPID on $OLDHOST, waiting (export SKIP_LOCK=true to bypass in safe conditions)..." >&2
             if [ "$OLDHOST" = "`hostname`" ]; then
                 if [ ! -d "/proc/$OLDPID" ]; then
                     echo "I am `hostname` and '/proc/$OLDPID' is absent, removing lock and waiting for up to 15 sec (maybe other copies will kick in)..."
