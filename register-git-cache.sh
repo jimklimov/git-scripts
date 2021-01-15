@@ -302,12 +302,69 @@ do_fetch_repos() {
     git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
 }
 
+get_subrepo_dir() {
+    local REPO="$1"
+    local REPONORM="`echo "$REPO" | tr 'A-Z' 'a-z' | sed -e 's,\.git$,,'`"
+    local SUBREPO_DIR=""
+
+    # Compatibility with JENKINS-64383 solution
+    case "${REPONORM}" in
+        *://*) ;;
+        /*) REPONORM="file://`echo "${REPONORM}" | sed -e 's,/\./,/,g' -e 's,//*,/,g'`" ;;
+        *)  REPONORM="file://$(echo "`pwd`/${REPONORM}" | sed -e 's,/\./,/,g' -e 's,//*,/,g')" ;;
+    esac
+    case "${REFREPODIR_MODE}" in
+        "") return 0 ;; # Standalone run
+        GIT_URL|'${GIT_URL}'|GIT_URL_FALLBACK|'${GIT_URL_FALLBACK}')
+            SUBREPO_DIR="${REPONORM}" ;;
+        GIT_URL_BASENAME|'${GIT_URL_BASENAME}'|GIT_URL_BASENAME_FALLBACK|'${GIT_URL_BASENAME_FALLBACK}')
+            SUBREPO_DIR="`basename "$REPONORM"`"
+            ;;
+        GIT_URL_SHA256|'${GIT_URL_SHA256}'|GIT_URL_SHA256_FALLBACK|'${GIT_URL_SHA256_FALLBACK}')
+            SUBREPO_DIR="`echo "$REPONORM" | sha256sum | cut -d' ' -f1`"
+            ;;
+        GIT_SUBMODULES|'${GIT_SUBMODULES}'|GIT_SUBMODULES_FALLBACK|'${GIT_SUBMODULES_FALLBACK}')
+            # Simplified matcher logic for best expectations from JENKINS-64383
+            SUBREPO_DIR="`echo "$REPONORM" | sha256sum | cut -d' ' -f1`"
+            [ -d "$SUBREPO_DIR" ] || [ -d "$SUBREPO_DIR.git" ] \
+            || SUBREPO_DIR="`basename "$REPONORM"`"
+            ;;
+        *)  echo "WARNING: Unsupported mode REFREPODIR_MODE='$REFREPODIR_MODE'" >&2
+            return 0
+            ;;
+    esac
+
+    if [ -n "${SUBREPO_DIR}" ] ; then
+        [ -e "${SUBREPO_DIR}/.git" -o -e "${SUBREPO_DIR}/objects" ] || SUBREPO_DIR="${SUBREPO_DIR}.git"
+    fi
+
+    case "${REFREPODIR_MODE}" in
+        GIT_*_FALLBACK|'${GIT_'*'_FALLBACK}')
+            if [ -n "${SUBREPO_DIR}" ] && [ -e "${SUBREPO_DIR}/.git" -o -e "${SUBREPO_DIR}/objects" ] ; then
+                : # No fallback needed
+            else
+                # Exported below if this script is recursing or running at top level
+                SUBREPO_DIR="${REFREPODIR_BASE-}"
+            fi
+            ;;
+    esac
+
+    [ -n "${SUBREPO_DIR}" ] \
+    && echo "${SUBREPO_DIR}"
+    # ...else return false
+}
+
 BIG_RES=0
 DID_UPDATE=false
 LOCK="`dirname $0`/.gitcache.lock"
 if [ -n "${REFREPODIR-}" ]; then
-    # Up to the caller (including recursion) to make sure the request is valid
+    # Up to the caller (including recursion with REFREPODIR_MODE options)
+    # to make sure the request is valid (especially for relative paths!)
     cd "${REFREPODIR}" || { echo "FATAL: REFREPODIR='$REFREPODIR' was specified but not usable" >&2 ; exit 1; }
+    if [ -z "${REFREPODIR_BASE-}" ] ; then
+        echo "WARNING: REFREPODIR_BASE for the parent is not specified, would use REFREPODIR as teh top level" >&2
+        REFREPODIR_BASE="`pwd`"
+    fi
 else
     cd "`dirname $0`" || exit 1
     REFREPODIR_BASE="`pwd`"
