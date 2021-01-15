@@ -305,7 +305,14 @@ do_fetch_repos() {
 BIG_RES=0
 DID_UPDATE=false
 LOCK="`dirname $0`/.gitcache.lock"
-cd "`dirname $0`" || exit 1
+if [ -n "${REFREPODIR-}" ]; then
+    # Up to the caller (including recursion) to make sure the request is valid
+    cd "${REFREPODIR}" || { echo "FATAL: REFREPODIR='$REFREPODIR' was specified but not usable" >&2 ; exit 1; }
+else
+    cd "`dirname $0`" || exit 1
+    REFREPODIR_BASE="`pwd`"
+    export REFREPODIR_BASE
+fi
 
 if [ -z "$SKIP_LOCK" ] ; then
 # Skipping is reserved for RO operations like listing, or for debugging the script
