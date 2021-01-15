@@ -94,8 +94,14 @@ do_register_repo() {
 
     is_repo_excluded "$REPO" || return 0 # not a fatal error, just a skip (reported there)
     git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
+
     sleep 1 # ensure unique ID
-    git remote add "repo-`date -u +%s`" "$REPO" && echo "OK: Registered repo '$REPO'" && REGISTERED_NOW["$REPO"]=1
+    local REPOID="repo-`date -u +%s`"
+    git remote add "$REPOID" "$REPO" \
+    && git remote set-url --push "$REPOID" no_push \
+    && echo "OK: Registered repo '$REPOID' => '$REPO'" \
+    && REGISTERED_NOW["$REPO"]=1
+#?#    && REGISTERED_NOW["$REPOID"]="$REPO"
 }
 
 do_list_remotes() {
