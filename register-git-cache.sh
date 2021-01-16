@@ -321,7 +321,7 @@ get_subrepo_dir() {
         *)  REPONORM="file://$(echo "`pwd`/${REPONORM}" | sed -e 's,/\./,/,g' -e 's,//*,/,g')" ;;
     esac
     case "${REFREPODIR_MODE}" in
-        "") return 0 ;; # Standalone run
+        "") return 2 ;; # Standalone run
         GIT_URL|'${GIT_URL}'|GIT_URL_FALLBACK|'${GIT_URL_FALLBACK}')
             # Note this can include non-portable FS characters like ":"
             SUBREPO_DIR="${REPONORM}"
@@ -339,7 +339,7 @@ get_subrepo_dir() {
             || SUBREPO_DIR="`basename "$REPONORM"`"
             ;;
         *)  echo "WARNING: Unsupported mode REFREPODIR_MODE='$REFREPODIR_MODE'" >&2
-            return 0
+            return 3
             ;;
     esac
 
@@ -359,8 +359,8 @@ get_subrepo_dir() {
     esac
 
     [ -n "${SUBREPO_DIR}" ] \
-    && echo "${SUBREPO_DIR}"
-    # ...else return false
+    && echo "${SUBREPO_DIR}" \
+    || return 1
 }
 
 BIG_RES=0
