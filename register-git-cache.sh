@@ -380,7 +380,7 @@ else
     export REFREPODIR_BASE
 fi
 
-if [ -z "$SKIP_LOCK" ] ; then
+if [ -z "$SKIP_LOCK" ] && [ "$1" != "--dev-test" ] ; then
 # Skipping is reserved for RO operations like listing, or for debugging the script
   while [ -s "$LOCK" ] ; do
     OLDPID="`head -1 "$LOCK"`"
@@ -502,6 +502,14 @@ EOF
             ;;
         repack-parallel) git repack -A -d --threads=0 || BIG_RES=$?
             DID_UPDATE=true
+            ;;
+        --dev-test)
+            shift
+            echo "Dev-testing a routine: $*" >&2
+            [ $# -gt 0 ] || exit
+            "$@" || BIG_RES=$?
+            echo "Dev-test completed with code $BIG_RES" >&2
+            exit $BIG_RES
             ;;
         *)  echo "ERROR: Unrecognized argument: $1" >&2
             exit 1
