@@ -302,6 +302,20 @@ do_fetch_repos() {
     git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
 }
 
+normalize_git_url() {
+    # Perform Git URL normalization similar to that in JENKINS-64383 solution
+    local REPO="$1"
+    local REPONORM="`echo "$REPO" | tr 'A-Z' 'a-z' | sed -e 's,\.git$,,'`"
+
+    case "${REPONORM}" in
+        *://*) ;;
+        /*) REPONORM="file://`echo "${REPONORM}" | sed -e 's,/\./,/,g' -e 's,//*,/,g'`" ;;
+        *)  REPONORM="file://$(echo "`pwd`/${REPONORM}" | sed -e 's,/\./,/,g' -e 's,//*,/,g')" ;;
+    esac
+
+    echo "$REPONORM"
+}
+
 get_subrepo_dir() {
     # Returns a sub-directory name (relative to parent workspace) determined
     # by rules similar to those for JENKINS-64383 solution for hosting several
@@ -311,15 +325,10 @@ get_subrepo_dir() {
     # A currently non-existent name return in some contexts may be something
     # to `mkdir` for example.
     local REPO="$1"
-    local REPONORM="`echo "$REPO" | tr 'A-Z' 'a-z' | sed -e 's,\.git$,,'`"
+    local REPONORM="`normalize_git_url "$REPO"`"
     local SUBREPO_DIR=""
 
     # Compatibility with JENKINS-64383 solution
-    case "${REPONORM}" in
-        *://*) ;;
-        /*) REPONORM="file://`echo "${REPONORM}" | sed -e 's,/\./,/,g' -e 's,//*,/,g'`" ;;
-        *)  REPONORM="file://$(echo "`pwd`/${REPONORM}" | sed -e 's,/\./,/,g' -e 's,//*,/,g')" ;;
-    esac
     case "${REFREPODIR_MODE}" in
         "") return 2 ;; # Standalone run
         GIT_URL|'${GIT_URL}'|GIT_URL_FALLBACK|'${GIT_URL_FALLBACK}')
