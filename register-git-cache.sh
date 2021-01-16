@@ -303,6 +303,13 @@ do_fetch_repos() {
 }
 
 get_subrepo_dir() {
+    # Returns a sub-directory name (relative to parent workspace) determined
+    # by rules similar to those for JENKINS-64383 solution for hosting several
+    # reference repositories with smaller scopes under one common configured
+    # location. The caller should check if the directory exists before using
+    # it; non-zero return codes are for errors determining the path name.
+    # A currently non-existent name return in some contexts may be something
+    # to `mkdir` for example.
     local REPO="$1"
     local REPONORM="`echo "$REPO" | tr 'A-Z' 'a-z' | sed -e 's,\.git$,,'`"
     local SUBREPO_DIR=""
@@ -316,7 +323,9 @@ get_subrepo_dir() {
     case "${REFREPODIR_MODE}" in
         "") return 0 ;; # Standalone run
         GIT_URL|'${GIT_URL}'|GIT_URL_FALLBACK|'${GIT_URL_FALLBACK}')
-            SUBREPO_DIR="${REPONORM}" ;;
+            # Note this can include non-portable FS characters like ":"
+            SUBREPO_DIR="${REPONORM}"
+            ;;
         GIT_URL_BASENAME|'${GIT_URL_BASENAME}'|GIT_URL_BASENAME_FALLBACK|'${GIT_URL_BASENAME_FALLBACK}')
             SUBREPO_DIR="`basename "$REPONORM"`"
             ;;
