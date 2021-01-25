@@ -399,19 +399,25 @@ get_subrepo_dir() {
 
 BIG_RES=0
 DID_UPDATE=false
-LOCK="`dirname $0`/.gitcache.lock"
 if [ -n "${REFREPODIR-}" ]; then
     # Up to the caller (including recursion with REFREPODIR_MODE options)
     # to make sure the request is valid (especially for relative paths!)
     cd "${REFREPODIR}" || { echo "FATAL: REFREPODIR='$REFREPODIR' was specified but not usable" >&2 ; exit 1; }
     if [ -z "${REFREPODIR_BASE-}" ] ; then
-        echo "WARNING: REFREPODIR_BASE for the parent is not specified, would use REFREPODIR as teh top level" >&2
+        echo "WARNING: REFREPODIR_BASE for the parent is not specified, would use REFREPODIR as the top level" >&2
         REFREPODIR_BASE="`pwd`"
     fi
 else
     cd "`dirname $0`" || exit 1
     REFREPODIR_BASE="`pwd`"
     export REFREPODIR_BASE
+fi
+
+# Note: assumes the script running user may write to the refrepo dir tree
+if [ -n "${REFREPODIR-}" ] && [ -d "${REFREPODIR-}" ]; then
+    LOCK="${REFREPODIR}/.gitcache.lock"
+else
+    LOCK="`dirname $0`/.gitcache.lock"
 fi
 
 if [ -z "$SKIP_LOCK" ] && [ "$1" != "--dev-test" ] ; then
