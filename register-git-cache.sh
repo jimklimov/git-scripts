@@ -70,10 +70,24 @@ if [ "$DEBUG" = true ]; then
     set -x
 fi
 
+if [ -n "${REFREPODIR-}" ]; then
+    # Up to the caller (including recursion with REFREPODIR_MODE options)
+    # to make sure the request is valid (especially for relative paths!)
+    cd "${REFREPODIR}" || { echo "FATAL: REFREPODIR='$REFREPODIR' was specified but not usable" >&2 ; exit 1; }
+    if [ -z "${REFREPODIR_BASE-}" ] ; then
+        echo "WARNING: REFREPODIR_BASE for the parent is not specified, would use REFREPODIR as the top level" >&2
+        REFREPODIR_BASE="`pwd`"
+    fi
+else
+    cd "`dirname $0`" || exit 1
+    REFREPODIR_BASE="`pwd`"
+    export REFREPODIR_BASE
+fi
+
 # This file can list line by line shell-glob (case) patterns to avoid addition
 # of certain URLs (e.g. by automated jobs parsing a history of build setups,
 # including references to SCM server instances that no longer exist).
-EXCEPT_PATTERNS_FILE="`dirname $0`/.except"
+EXCEPT_PATTERNS_FILE="${REFREPODIR_BASE}/.except"
 [ -n "${QUIET_SKIP-}" ] || QUIET_SKIP=no
 
 is_repo_excluded() {
@@ -403,19 +417,6 @@ get_subrepo_dir() {
 
 BIG_RES=0
 DID_UPDATE=false
-if [ -n "${REFREPODIR-}" ]; then
-    # Up to the caller (including recursion with REFREPODIR_MODE options)
-    # to make sure the request is valid (especially for relative paths!)
-    cd "${REFREPODIR}" || { echo "FATAL: REFREPODIR='$REFREPODIR' was specified but not usable" >&2 ; exit 1; }
-    if [ -z "${REFREPODIR_BASE-}" ] ; then
-        echo "WARNING: REFREPODIR_BASE for the parent is not specified, would use REFREPODIR as the top level" >&2
-        REFREPODIR_BASE="`pwd`"
-    fi
-else
-    cd "`dirname $0`" || exit 1
-    REFREPODIR_BASE="`pwd`"
-    export REFREPODIR_BASE
-fi
 
 # Note: assumes the script running user may write to the refrepo dir tree
 if [ -n "${REFREPODIR-}" ] && [ -d "${REFREPODIR-}" ]; then
