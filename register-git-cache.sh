@@ -152,6 +152,10 @@ declare -A REGISTERED_RECURSIVELY_NOW
 do_register_repos_recursive() {
     # Register each repo URL and dig into all branches' `.gitmodules` file to recurse
     # Note a REPO may be something already registered, then we just look for submodules
+    # Note: If recursing for nested refrepos (not-empty REFREPODIR_MODE),
+    # we may need to only fork to process each one child repo - but go back
+    # into parent to track all URLs we have processed to avoid doing them
+    # more than once. Maybe also can need to avoid the LOCK on parent dir?..
     local REPO SUBREPO
     local RES=0
     local _RES=0
