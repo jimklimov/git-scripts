@@ -39,7 +39,29 @@
 # * the advanced option to use a reference repo is only applied during
 #   cloning - existing workspaces must be remade to try it out
 #
-# Copyright 2018-2020 (C) Jim Klimov <jimklimov@gmail.com>
+# This script also aims to help maintain a fanout of reference repositories
+# hosted under a single directory, as proposed for improving performance in
+# Jenkins jobs using a single configuration (e.g. generated from OrgFolders):
+#   https://issues.jenkins.io/browse/JENKINS-64383
+#   https://github.com/jenkinsci/git-client-plugin/pull/644
+# For this support, it adds the following environment variables to fork and
+# work in a determined sub-directory, applied if REFREPODIR_MODE is not empty:
+# * REFREPODIR_BASE - location of the top-level refrepo (where this script
+#   or symlink to it is located, by default)
+# * REFREPODIR - location of the refrepo determined for the Git URL
+# * REFREPODIR_MODE using a suffix defined in PR#644 above:
+#   GIT_URL_BASENAME = subdir named by "basename" of normalized repo URL
+#   GIT_URL_SHA256 = subdir named by hash of normalized repo URL
+#   GIT_SUBMODULES = sha256 if present, or basename otherwise (here we
+#       use bare repo on top, so real submodules are not handled directly)
+#   GIT_URL = subdir tree named verbatim by normalized repo URL (not portable)
+#   GIT_*_FALLBACK = if dir named above is not present, use REFREPODIR_BASE
+# The new method get_subrepo_dir() can be used to determine in script code
+# whether such forking should be used for adding or updating a Git URL: if
+# it returns a success and not-empty string, that is the dir to (make and)
+# change into for the actual git operations for that one Git URL.
+#
+# Copyright 2018-2021 (C) Jim Klimov <jimklimov@gmail.com>
 # Shared on the terms of MIT license.
 # Original development tracked at https://github.com/jimklimov/git-scripts
 #
