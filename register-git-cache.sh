@@ -127,6 +127,8 @@ do_register_repo() {
 }
 
 do_list_remotes() {
+    # For each arg, do git-ls-remote - List references in a remote repository
+    # (NOT listing of known remote repo IDs - see do_list_repoids() for that)
     ( for REPO in "$@" ; do
         echo "===== Listing remotes of '$REPO'..." >&2
         is_repo_excluded "$REPO" || continue # not a fatal error, just a skip (reported there)
@@ -135,14 +137,15 @@ do_list_remotes() {
 }
 
 do_list_subrepos() {
-    ( # List all unique branches etc. known in the repo(s) from argument...
+    ( # List all unique branches/tags etc. known in the repo(s) from argument,
+      # and from each branch, get a .gitmodules if any and URLs from it:
         for HASH in `do_list_remotes "$@"` ; do
-            # From each branch, get a .gitmodules if any and URLs from it
             ( echo "===== Checking submodules (if any) under tip hash '$HASH'..." >&2
               git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url ) &
         done
     wait ) \
     | tr -d ' \t' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
+    # ...in the end, return all unique Git URLs registered as git submodules
 }
 
 declare -A REGISTERED_RECURSIVELY_NOW
