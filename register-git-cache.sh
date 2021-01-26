@@ -79,6 +79,8 @@ if [ -n "${REFREPODIR-}" ]; then
         REFREPODIR_BASE="`pwd`"
     fi
 else
+    # With empty REFREPODIR, this script instance is not recursing now.
+    # If a valid REFREPODIR_MODE is not empty, it will recurse for git ops.
     cd "`dirname $0`" || exit 1
     REFREPODIR_BASE="`pwd`"
     export REFREPODIR_BASE
