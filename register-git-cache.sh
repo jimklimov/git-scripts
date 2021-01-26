@@ -122,15 +122,21 @@ do_register_repo() {
     # only a single complete URL makes sense for adding)
     local REPO
     REPO="$1"
-    [ -e .git ] || [ -s HEAD ] || \
-        ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
-          git init --bare && git config gc.auto 0 ) || exit $?
 
     [ "${REGISTERED_NOW["$REPO"]}" = 1 ] \
         && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' already registered during this run" ; } \
         && return 42
 
     is_repo_excluded "$REPO" || return 0 # not a fatal error, just a skip (reported there)
+
+    local REFREPODIR_REPO
+    [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
+        && { mkdir -p "${REFREPODIR_REPO}" && pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd ; trap - RETURN' RETURN || exit $? ; }
+
+    [ -e .git ] || [ -s HEAD ] || \
+        ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
+          git init --bare && git config gc.auto 0 ) || exit $?
+
     git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
 
     sleep 1 # ensure unique ID
@@ -148,16 +154,24 @@ do_list_remotes() {
     ( for REPO in "$@" ; do
         echo "===== Listing remotes of '$REPO'..." >&2
         is_repo_excluded "$REPO" || continue # not a fatal error, just a skip (reported there)
-        git ls-remote "$REPO" | awk '{print $1}' &
+        (
+            local REFREPODIR_REPO=''
+            [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
+                && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
+            git ls-remote "$REPO" | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1" "REPODIR}'
+        ) &
       done ; wait) | sort | uniq
 }
 
 do_list_subrepos() {
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
-        for HASH in `do_list_remotes "$@"` ; do
-            ( echo "===== Checking submodules (if any) under tip hash '$HASH'..." >&2
-              git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url ) &
+        do_list_remotes "$@" | while read HASH REFREPODIR_REPO ; do
+            (   echo "===== Checking submodules (if any) under tip hash '$HASH'..." >&2
+                [ -n "${REFREPODIR_REPO}" ] \
+                    && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
+                git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url
+            ) &
         done
     wait ) \
     | tr -d ' \t' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
@@ -233,6 +247,10 @@ do_unregister_repo() {
     local REPO
     REPO="$1"
 
+    local REFREPODIR_REPO
+    [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
+        && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd ; trap - RETURN' RETURN || return $? ; }
+
     REPO_IDS="`git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
     [ -z "$REPO_IDS" ] && echo "SKIP: Repo '$REPO' not registered" && return 0
 
@@ -260,7 +278,15 @@ do_list_repoids() {
     # (.git extension included) though case-insensitively to be listed.
     # Returns the git remote repo names (e.g. repo-1536929947 here) and
     # the original URL.
-    git remote -v | \
+    # TODO: Cleaner handling of REFREPODIR_* cases (e.g. match only $@
+    # provided dirs, if any)?..
+    ( git remote -v
+      if [ -n "${REFREPODIR_MODE-}" ] ; then
+        for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
+            ( D="`dirname "$DG"`" && cd "$D" && git remote -v | sed 's,$, '"`basename "$D"`," )
+        done
+      fi
+    ) | \
     ( if [ $# = 0 ]; then cat ; else
         # Maybe `echo "$@" | tr ' ' '|' is even better?
         # This could however fall victim to whitespaces in URLs,
@@ -269,17 +295,17 @@ do_list_repoids() {
         grep -E "$RE"
       fi
     ) | \
-    while read R U M ; do
+    while read R U M D ; do
         [ "$M" = '(fetch)' ] && \
         U_LC="`lc "$U"`" && \
         { is_repo_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
         } && \
         if [ $# = 0 ]; then
-            printf '%s\t%s\n' "$R" "$U"
+            printf '%s\t%s\t%s\n' "$R" "$U" "$D"
         else
             for UU in "$@" ; do
                 if [ "`lc "$UU"`" = "$U_LC" ]; then
-                    printf '%s\t%s\n' "$R" "$U"
+                    printf '%s\t%s\t%s\n' "$R" "$U" "$D"
                 fi
             done
         fi
@@ -290,14 +316,18 @@ do_fetch_repos_verbose_seq() (
     # Fetches repos listed on stdin and reports, sequentially
     # -f allows to force-update references to remote current state (e.g. floating tags)
     RES=0
-    while read R U ; do
+    while read R U D; do
         [ -n "$U" ] || U="$R"
         echo "=== $U ($R):"
         is_repo_excluded "$U" || continue # not a fatal error, just a skip (reported there)
 
-        git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
-        && git fetch -f --tags --progress "$R" \
-        || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
+        (   local REFREPODIR_REPO="$D"
+            { [ -n "${REFREPODIR_REPO}" ] || \
+              { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
+                && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && echo "===== $U ($R) in `pwd` :" || exit $? ; }
+            git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
+                && git fetch -f --tags --progress "$R" \
+        ) || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
     done
     exit $RES
@@ -309,15 +339,20 @@ do_fetch_repos_verbose_par() (
     # * no job control for multiple children so far
     # -f allows to force-update references to remote current state (e.g. floating tags)
     RES=0
-    while read R U ; do
+    while read R U D ; do
         [ -n "$U" ] || U="$R"
         is_repo_excluded "$U" || continue # not a fatal error, just a skip (reported there)
 
         echo "=== Starting $U ($R) in background..."
-        ( git fetch -f "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
-          && git fetch -f --tags "$R" \
-          || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; exit $RES; }
-          echo "===== Completed $U ($R)" ; ) &
+        (   local REFREPODIR_REPO="$D"
+            { [ -n "${REFREPODIR_REPO}" ] || \
+              { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
+                && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && echo "===== $U ($R) in `pwd` :" || exit $? ; }
+            git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
+                && git fetch -f --tags --progress "$R" \
+                || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; exit $RES; }
+            echo "===== Completed $U ($R)"
+        ) &
         echo ""
     done
     wait || RES=$?
@@ -332,7 +367,7 @@ do_fetch_repos() {
             ;& # fall through
         -vs|-v)
             shift
-            if [ $# = 0 ]; then
+            if [ $# = 0 ] && [ -z "${REFREPODIR_MODE-}" ] ; then
                 git remote -v | GREP_OPTIONS= grep fetch | awk '{print $1" "$2}'
             else
                 do_list_repoids "$@"
@@ -344,7 +379,27 @@ do_fetch_repos() {
     # Non-verbose default mode:
     # TODO: Can we pass a refspec to fetch all branches here?
     # Or should we follow up with another fetch (like verbose)?
-    git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
+    if [ -z "${REFREPODIR_MODE-}" ] ; then
+        git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
+    else
+        local R U D
+        local D_=''
+        local R_=''
+        ( do_list_repoids "$@" | sort -k3 | uniq ; echo '. . .' ) | while read R U D ; do
+            if [ "$D" = "$D_" ] ; then
+                R_="$R_ $R"
+            else
+                ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
+                  echo "===== Processing refrepo dir '$D_': $R_" >&2
+                  cd "$D_" && git fetch -f --multiple --tags $R_ ) || RES=$?
+                if [ "$D" = '.' ]; then
+                    break
+                fi
+                D_="$D"
+                R_=''
+            fi
+        done
+    fi
 }
 
 normalize_git_url() {
@@ -528,12 +583,26 @@ EOF
             shift
             ;;
         fetch|update|pull|up)
-            if [ "$#" = 1 ]; then
+            if [ "$#" = 1 ] ; then
                 lower_priority
                 # Note: -jN parallelizes submodules, not remotes
                 # Note: this can bypass EXCEPT_PATTERNS_FILE
-                git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-                git fetch -f --all --prune --tags
+                if [ -n "${REFREPODIR_MODE-}" ] ; then
+                    echo "===== Processing refrepo dir '`pwd`':" >&2
+                    git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+                    git fetch -f --all --prune --tags
+                    for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
+                        ( D="`dirname "$DG"`"
+                          cd "$D" || exit
+                          echo "===== Processing refrepo dir '$D':" >&2
+                            git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+                            git fetch -f --all --prune --tags
+                        )
+                    done
+                else
+                    git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+                    git fetch -f --all --prune --tags
+                fi
             else
                 shift
                 QUIET_SKIP=yes do_fetch_repos "$@" || BIG_RES=$?
@@ -542,12 +611,28 @@ EOF
             DID_UPDATE=true
             ;;
         gc) git gc --prune=now || BIG_RES=$?
+            if [ -n "${REFREPODIR_MODE-}" ] ; then
+                for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
+                    ( cd "`dirname "$DG"`" && git gc --prune=now ) || BIG_RES=$?
+                done
+            fi
             DID_UPDATE=true
             ;;
         repack) git repack -A -d || BIG_RES=$?
+            if [ -n "${REFREPODIR_MODE-}" ] ; then
+                for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
+                    ( cd "`dirname "$DG"`" && git repack -A -d ) || BIG_RES=$?
+                done
+            fi
             DID_UPDATE=true
             ;;
         repack-parallel) git repack -A -d --threads=0 || BIG_RES=$?
+            # This assumes parallel compression, so each subrepo can be sequential
+            if [ -n "${REFREPODIR_MODE-}" ] ; then
+                for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
+                    ( cd "`dirname "$DG"`" && git repack -A -d --threads=0 ) || BIG_RES=$?
+                done
+            fi
             DID_UPDATE=true
             ;;
         --dev-test)
