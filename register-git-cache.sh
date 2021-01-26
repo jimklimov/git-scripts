@@ -385,22 +385,29 @@ do_fetch_repos() {
         git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
     else
         local R U D
-        local D_=''
+        local D_='.'
         local R_=''
-        ( do_list_repoids "$@" | sort -k3 | uniq ; echo '. . .' ) | while read R U D ; do
+        local RES=0
+
+        ( do_list_repoids "$@" | sort -k3 | uniq ; echo '. . .' ) | \
+        while read R U D ; do
             if [ "$D" = "$D_" ] ; then
                 R_="$R_ $R"
             else
-                ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
-                  echo "===== Processing refrepo dir '$D_': $R_" >&2
-                  cd "$D_" && git fetch -f --multiple --tags $R_ ) || RES=$?
+                if [ "$D_" != '.' ]; then
+                    ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
+                      echo "===== Processing refrepo dir '$D_': $R_" >&2
+                      cd "$D_" && git fetch -f --multiple --tags $R_ ) || RES=$?
+                      # TODO: bubble up the RES from the pipes
+                fi
                 if [ "$D" = '.' ]; then
                     break
                 fi
                 D_="$D"
-                R_=''
+                R_="$R"
             fi
         done
+        return $RES
     fi
 }
 
