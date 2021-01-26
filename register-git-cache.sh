@@ -133,7 +133,7 @@ do_register_repo() {
 
     local REFREPODIR_REPO
     [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
-        && { mkdir -p "${REFREPODIR_REPO}" && pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd ; trap - RETURN' RETURN || exit $? ; }
+        && { mkdir -p "${REFREPODIR_REPO}" && pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd >/dev/null ; trap - RETURN' RETURN || exit $? ; }
 
     [ -e .git ] || [ -s HEAD ] || \
         ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
@@ -251,7 +251,7 @@ do_unregister_repo() {
 
     local REFREPODIR_REPO
     [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
-        && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd ; trap - RETURN' RETURN || return $? ; }
+        && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd >/dev/null ; trap - RETURN' RETURN || return $? ; }
 
     REPO_IDS="`git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
     [ -z "$REPO_IDS" ] && echo "SKIP: Repo '$REPO' not registered" && return 0
