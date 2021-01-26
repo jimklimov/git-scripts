@@ -70,6 +70,8 @@ if [ "$DEBUG" = true ]; then
     set -x
 fi
 
+# NOTE: Currently all the support happens without extra recursion,
+# so maybe this varname will be dropped.
 if [ -n "${REFREPODIR-}" ]; then
     # Up to the caller (including recursion with REFREPODIR_MODE options)
     # to make sure the request is valid (especially for relative paths!)
