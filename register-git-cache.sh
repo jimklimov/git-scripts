@@ -94,7 +94,7 @@ fi
 EXCEPT_PATTERNS_FILE="${REFREPODIR_BASE}/.except"
 [ -n "${QUIET_SKIP-}" ] || QUIET_SKIP=no
 
-is_repo_excluded() {
+is_repo_not_excluded() {
     # Returns 0 if we can go on registering/processing; 1 to skip this repo
     local REPO
     REPO="$1"
@@ -129,7 +129,7 @@ do_register_repo() {
         && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' already registered during this run" ; } \
         && return 42
 
-    is_repo_excluded "$REPO" || return 0 # not a fatal error, just a skip (reported there)
+    is_repo_not_excluded "$REPO" || return 0 # not a fatal error, just a skip (reported there)
 
     local REFREPODIR_REPO
     [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
@@ -155,7 +155,7 @@ do_list_remotes() {
     # (NOT listing of known remote repo IDs - see do_list_repoids() for that)
     ( for REPO in "$@" ; do
         echo "===== Listing remotes of '$REPO'..." >&2
-        is_repo_excluded "$REPO" || continue # not a fatal error, just a skip (reported there)
+        is_repo_not_excluded "$REPO" || continue # not a fatal error, just a skip (reported there)
         (
             local REFREPODIR_REPO=''
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
@@ -205,8 +205,8 @@ do_register_repos_recursive() {
     for REPO in "$@" ; do
         [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
         && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 ; } \
-        || { is_repo_excluded "$REPO" && TOPREPO_LIST+=( "$REPO" ) ; }
-        # Note: is_repo_excluded() returns 0 to go on processing the repo
+        || { is_repo_not_excluded "$REPO" && TOPREPO_LIST+=( "$REPO" ) ; }
+        # Note: is_repo_not_excluded() returns 0 to go on processing the repo
     done
 
     # First register the nearest-level repos
@@ -301,7 +301,7 @@ do_list_repoids() {
     while read R U M D ; do
         [ "$M" = '(fetch)' ] && \
         U_LC="`lc "$U"`" && \
-        { is_repo_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
+        { is_repo_not_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
         } && \
         if [ $# = 0 ]; then
             printf '%s\t%s\t%s\n' "$R" "$U" "$D"
@@ -322,7 +322,7 @@ do_fetch_repos_verbose_seq() (
     while read R U D; do
         [ -n "$U" ] || U="$R"
         echo "=== $U ($R):"
-        is_repo_excluded "$U" || continue # not a fatal error, just a skip (reported there)
+        is_repo_not_excluded "$U" || continue # not a fatal error, just a skip (reported there)
 
         (   local REFREPODIR_REPO="$D"
             { [ -n "${REFREPODIR_REPO}" ] || \
@@ -344,7 +344,7 @@ do_fetch_repos_verbose_par() (
     RES=0
     while read R U D ; do
         [ -n "$U" ] || U="$R"
-        is_repo_excluded "$U" || continue # not a fatal error, just a skip (reported there)
+        is_repo_not_excluded "$U" || continue # not a fatal error, just a skip (reported there)
 
         echo "=== Starting $U ($R) in background..."
         (   local REFREPODIR_REPO="$D"
