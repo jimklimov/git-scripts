@@ -246,13 +246,14 @@ do_register_repos_recursive() {
 do_unregister_repo() {
     # REPO is a substring from `git remote` listing,
     # so can be part of an ID or URL
-    local REPO
+    local REPO REPO_IDS REPO_ID
     REPO="$1"
 
     local REFREPODIR_REPO
     [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
         && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd >/dev/null ; trap - RETURN' RETURN || return $? ; }
 
+    # There may happen to be several registrations for same URL
     REPO_IDS="`git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
     [ -z "$REPO_IDS" ] && echo "SKIP: Repo '$REPO' not registered" && return 0
 
