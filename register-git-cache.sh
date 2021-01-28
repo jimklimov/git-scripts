@@ -148,13 +148,13 @@ do_register_repo() {
         ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
           git init --bare && git config gc.auto 0 ) || exit $?
 
-    git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered" && return 0
+    git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered in `pwd`" && return 0
 
     sleep 1 # ensure unique ID
     local REPOID="repo-`date -u +%s`"
     git remote add "$REPOID" "$REPO" \
     && git remote set-url --push "$REPOID" no_push \
-    && echo "OK: Registered repo '$REPOID' => '$REPO'" \
+    && echo "OK: Registered repo '$REPOID' => '$REPO' in `pwd`" \
     && REGISTERED_NOW["$REPO"]=1
 #?#    && REGISTERED_NOW["$REPOID"]="$REPO"
 }
@@ -170,6 +170,7 @@ do_list_remotes() {
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
             git ls-remote "$REPO" | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1" "REPODIR}'
+            # Note: the trailing column is empty for discoveries/runs without REFREPODIR
         ) &
       done ; wait) | sort | uniq
 }
@@ -264,11 +265,11 @@ do_unregister_repo() {
 
     # There may happen to be several registrations for same URL
     REPO_IDS="`git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
-    [ -z "$REPO_IDS" ] && echo "SKIP: Repo '$REPO' not registered" && return 0
+    [ -z "$REPO_IDS" ] && echo "SKIP: Repo '$REPO' not registered in `pwd`" && return 0
 
     RES=0
     for REPO_ID in $REPO_IDS ; do
-        echo "=== Unregistering repository ID '$REPO_ID' ..."
+        echo "=== Unregistering repository ID '$REPO_ID' from `pwd`..."
         git remote remove "$REPO_ID" || RES=$?
     done
     return $RES
@@ -339,6 +340,7 @@ do_fetch_repos_verbose_seq() (
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && echo "===== $U ($R) in `pwd` :" || exit $? ; }
             git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
                 && git fetch -f --tags --progress "$R" \
+                && echo "===== Completed $U ($R) in `pwd`"
         ) || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
     done
@@ -363,7 +365,7 @@ do_fetch_repos_verbose_par() (
             git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
                 && git fetch -f --tags --progress "$R" \
                 || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; exit $RES; }
-            echo "===== Completed $U ($R)"
+            echo "===== Completed $U ($R) in `pwd`"
         ) &
         echo ""
     done
