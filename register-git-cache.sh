@@ -331,17 +331,18 @@ do_fetch_repos_verbose_seq() (
     RES=0
     while read R U D; do
         [ -n "$U" ] || U="$R"
-        echo "=== $U ($R):"
+        echo "=== (fetcher:verbose:seq) $U ($R):"
         is_repo_not_excluded "$U" || continue # not a fatal error, just a skip (reported there)
 
         (   local REFREPODIR_REPO="$D"
             { [ -n "${REFREPODIR_REPO}" ] || \
               { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
-                && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && echo "===== $U ($R) in `pwd` :" || exit $? ; }
+                && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
+            echo "===== (fetcher:verbose:seq) Starting $U ($R) in `pwd` :"
             git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
                 && git fetch -f --tags --progress "$R" \
-                && echo "===== Completed $U ($R) in `pwd`"
-        ) || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; }
+                && echo "===== (fetcher:verbose:seq) Completed $U ($R) in `pwd`"
+        ) || { RES=$? ; echo "(fetcher:verbose:seq) FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
     done
     exit $RES
@@ -357,15 +358,15 @@ do_fetch_repos_verbose_par() (
         [ -n "$U" ] || U="$R"
         is_repo_not_excluded "$U" || continue # not a fatal error, just a skip (reported there)
 
-        echo "=== Starting $U ($R) in background..."
         (   local REFREPODIR_REPO="$D"
             { [ -n "${REFREPODIR_REPO}" ] || \
               { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
-                && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && echo "===== $U ($R) in `pwd` :" || exit $? ; }
+                && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
+            echo "=== (fetcher:verbose:par) Starting $U ($R) in `pwd` in background..."
             git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
                 && git fetch -f --tags --progress "$R" \
-                || { RES=$? ; echo "FAILED TO FETCH : $U ($R)" >&2 ; exit $RES; }
-            echo "===== Completed $U ($R) in `pwd`"
+                || { RES=$? ; echo "(fetcher:verbose:par) FAILED TO FETCH : $U ($R) in `pwd` in background" >&2 ; exit $RES; }
+            echo "===== (fetcher:verbose:par) Completed $U ($R) in `pwd` in background"
         ) &
         echo ""
     done
@@ -394,6 +395,7 @@ do_fetch_repos() {
     # TODO: Can we pass a refspec to fetch all branches here?
     # Or should we follow up with another fetch (like verbose)?
     if [ -z "${REFREPODIR_MODE-}" ] ; then
+        echo "===== (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
         git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
     else
         local R U D
@@ -408,7 +410,7 @@ do_fetch_repos() {
             else
                 if [ "$D_" != '.' ]; then
                     ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
-                      echo "===== Processing refrepo dir '$D_': $R_" >&2
+                      echo "===== (fetcher:default:seq) Processing refrepo dir '$D_': $R_" >&2
                       cd "$D_" && git fetch -f --multiple --tags $R_ ) || RES=$?
                       # TODO: bubble up the RES from the pipes
                 fi
@@ -609,18 +611,19 @@ EOF
                 # Note: -jN parallelizes submodules, not remotes
                 # Note: this can bypass EXCEPT_PATTERNS_FILE
                 if [ -n "${REFREPODIR_MODE-}" ] ; then
-                    echo "===== Processing refrepo dir '`pwd`':" >&2
+                    echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
                     git fetch -f --all -j8 --prune --tags 2>/dev/null || \
                     git fetch -f --all --prune --tags
                     for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
                         ( D="`dirname "$DG"`"
                           cd "$D" || exit
-                          echo "===== Processing refrepo dir '$D':" >&2
+                          echo "===== (fetcher:default:all) Processing refrepo dir '$D':" >&2
                             git fetch -f --all -j8 --prune --tags 2>/dev/null || \
                             git fetch -f --all --prune --tags
                         )
                     done
                 else
+                    echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
                     git fetch -f --all -j8 --prune --tags 2>/dev/null || \
                     git fetch -f --all --prune --tags
                 fi
