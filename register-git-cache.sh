@@ -94,10 +94,15 @@ fi
 EXCEPT_PATTERNS_FILE="${REFREPODIR_BASE}/.except"
 [ -n "${QUIET_SKIP-}" ] || QUIET_SKIP=no
 
+declare -A KNOWN_EXCLUDED
 is_repo_not_excluded() {
     # Returns 0 if we can go on registering/processing; 1 to skip this repo
     local REPO
     REPO="$1"
+
+    if [ "${KNOWN_EXCLUDED["$REPO"]-}" = 1 ] ; then
+        return 1
+    fi
 
     if [ ! -s "$EXCEPT_PATTERNS_FILE" ] || [ "$SKIP_EXCEPT_PATTERNS_FILE" = true ] ; then
         # No exceptions
@@ -108,7 +113,11 @@ is_repo_not_excluded() {
         [ -n "$PAT" ] || continue
         case "$REPO" in
             "#"*) continue ;;
-            $PAT) [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2 ; return 1 ;;
+            $PAT)
+                [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2
+                KNOWN_EXCLUDED["$REPO"]=1
+                return 1
+                ;;
         esac
     done < "$EXCEPT_PATTERNS_FILE"
 
