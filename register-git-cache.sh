@@ -555,6 +555,9 @@ $0 add-recursive [new|all] REPO_URL [REPO_URL...] => register repo (if not yet),
                             fetch its contents, and do same for submodules (if any)
 $0 { list | ls | ls-recursive } [REPO_URL...]
 $0 up [-v|-vs|-vp] [REPO_URL...]      => fetch new commits
+$0 up-all                             => fetch new commits for all registered
+                                         repos (including those URLs normally
+                                         skipped by .exclude patterns if any)
 $0 co REPO_URL                        => register + fetch
 $0 del REPO_GLOB                      => unregister
 where REPO_URL are singular original exact remote repository URLs
@@ -611,30 +614,30 @@ EOF
             DID_UPDATE=true
             shift
             ;;
-        fetch|update|pull|up)
-            if [ "$#" = 1 ] ; then
-                lower_priority
-                # Note: -jN parallelizes submodules, not remotes
-                # Note: this can bypass EXCEPT_PATTERNS_FILE
-                if [ -n "${REFREPODIR_MODE-}" ] ; then
-                    # Prioritize presumed smaller-scoped refrepos in subdirs that should complete faster
-                    for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
-                        ( D="`dirname "$DG"`"
-                          cd "$D" || exit
-                          echo "===== (fetcher:default:all) Processing refrepo dir '$D':" >&2
-                            git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-                            git fetch -f --all --prune --tags
-                        )
-                    done
-                fi
-                echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
-                git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-                git fetch -f --all --prune --tags
-            else
-                shift
-                QUIET_SKIP=yes do_fetch_repos "$@" || BIG_RES=$?
-                shift $#
+        fetch-all|update-all|pull-all|up-all)
+            lower_priority
+            # Note: -jN parallelizes submodules, not remotes
+            # Note: this can bypass EXCEPT_PATTERNS_FILE
+            if [ -n "${REFREPODIR_MODE-}" ] ; then
+                # Prioritize presumed smaller-scoped refrepos in subdirs that should complete faster
+                for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
+                    ( D="`dirname "$DG"`"
+                      cd "$D" || exit
+                      echo "===== (fetcher:default:all) Processing refrepo dir '$D':" >&2
+                        git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+                        git fetch -f --all --prune --tags
+                    )
+                done
             fi
+            echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
+            git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+            git fetch -f --all --prune --tags
+            DID_UPDATE=true
+            ;;
+        fetch|update|pull|up)
+            shift
+            QUIET_SKIP=yes do_fetch_repos "$@" || BIG_RES=$?
+            shift $#
             DID_UPDATE=true
             ;;
         gc) git gc --prune=now || BIG_RES=$?
