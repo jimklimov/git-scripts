@@ -416,9 +416,13 @@ do_fetch_repos() {
             else
                 if [ "$D_" != '.' ]; then
                     ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
-                      echo "===== (fetcher:default:seq) Processing refrepo dir '$D_': $R_" >&2
-                      cd "$D_" && git fetch -f --multiple --tags $R_ ) || RES=$?
-                      # TODO: bubble up the RES from the pipes
+                      echo "===== (fetcher:default:par) Processing refrepo dir '$D_': $R_" >&2
+                      cd "$D_" || exit
+                      git fetch -f -j8 --multiple --tags $R_ || \
+                      { echo "===== (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
+                        git fetch -f --multiple --tags $R_ ; }
+                    ) || RES=$?
+                    # TODO: bubble up the RES from the pipes
                 fi
                 if [ "$D" = '.' ]; then
                     break
@@ -625,13 +629,15 @@ EOF
                       cd "$D" || exit
                       echo "===== (fetcher:default:all) Processing refrepo dir '$D':" >&2
                         git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-                        git fetch -f --all --prune --tags
+                        { echo "===== (fetcher:default:all) Retry sequentially refrepo dir '$D_':" >&2 ;
+                          git fetch -f --all --prune --tags ; }
                     )
                 done
             fi
             echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
             git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-            git fetch -f --all --prune --tags
+            { echo "===== (fetcher:default:all) Retry sequentially refrepo dir '`pwd`':" >&2 ;
+              git fetch -f --all --prune --tags ; }
             DID_UPDATE=true
             ;;
         fetch|update|pull|up)
