@@ -385,7 +385,12 @@ do_fetch_repos() {
             if [ $# = 0 ] && [ -z "${REFREPODIR_MODE-}" ] ; then
                 git remote -v | GREP_OPTIONS= grep fetch | awk '{print $1" "$2}'
             else
-                do_list_repoids "$@"
+                if [ -z "${REFREPODIR_MODE-}" ] ; then
+                    do_list_repoids "$@"
+                else
+                    # Reverse sort, to prioritize presumed-smaller-scope (faster) repos in subdirs
+                    do_list_repoids "$@" | sort -k3r
+                fi
             fi | $FETCHER
             return $?
             ;;
@@ -403,7 +408,8 @@ do_fetch_repos() {
         local R_=''
         local RES=0
 
-        ( do_list_repoids "$@" | sort -k3 | uniq ; echo '. . .' ) | \
+        # Reverse sort, to prioritize presumed-smaller-scope (faster) repos in subdirs
+        ( do_list_repoids "$@" | sort -k3r | uniq ; echo '. . .' ) | \
         while read R U D ; do
             if [ "$D" = "$D_" ] ; then
                 R_="$R_ $R"
@@ -611,9 +617,7 @@ EOF
                 # Note: -jN parallelizes submodules, not remotes
                 # Note: this can bypass EXCEPT_PATTERNS_FILE
                 if [ -n "${REFREPODIR_MODE-}" ] ; then
-                    echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
-                    git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-                    git fetch -f --all --prune --tags
+                    # Prioritize presumed smaller-scoped refrepos in subdirs that should complete faster
                     for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
                         ( D="`dirname "$DG"`"
                           cd "$D" || exit
@@ -622,11 +626,10 @@ EOF
                             git fetch -f --all --prune --tags
                         )
                     done
-                else
-                    echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
-                    git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-                    git fetch -f --all --prune --tags
                 fi
+                echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
+                git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+                git fetch -f --all --prune --tags
             else
                 shift
                 QUIET_SKIP=yes do_fetch_repos "$@" || BIG_RES=$?
