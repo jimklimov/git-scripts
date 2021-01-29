@@ -755,7 +755,11 @@ EOF
             ;;
         dedup-references)
             shift
-            do_list_repoids "$@" | sort -k3r | \
+            # Group by (2) URL first, then by (3) non-trivial directories first
+            # and empty basedir last, finally by (1) repoid so the oldest ID is
+            # seen first in the selection per dir and URL.
+            # This way newest redundant submissions are killed off.
+            do_list_repoids "$@" | sort  -k2,2 -k3,3r -k1,1n | \
             (   RP=''; UP='';
                 while read R U D; do
                     if [ "$U" = "$UP" ]; then
