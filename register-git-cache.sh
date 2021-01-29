@@ -410,7 +410,8 @@ do_fetch_repos() {
 
         # Reverse sort, to prioritize presumed-smaller-scope (faster) repos in subdirs
         ( do_list_repoids "$@" | sort -k3r | uniq ; echo '. . .' ) | \
-        while read R U D ; do
+        ( RESw=0
+          while read R U D ; do
             if [ "$D" = "$D_" ] ; then
                 R_="$R_ $R"
             else
@@ -421,8 +422,7 @@ do_fetch_repos() {
                       git fetch -f -j8 --multiple --tags $R_ || \
                       { echo "===== (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
                         git fetch -f --multiple --tags $R_ ; }
-                    ) || RES=$?
-                    # TODO: bubble up the RES from the pipes
+                    ) || RESw=$?
                 fi
                 if [ "$D" = '.' ]; then
                     break
@@ -430,7 +430,9 @@ do_fetch_repos() {
                 D_="$D"
                 R_="$R"
             fi
-        done
+          done
+          exit $RESw
+        ) || RES=$?
         return $RES
     fi
 }
