@@ -237,6 +237,7 @@ do_list_subrepos() {
             (   # Note the 'test -e': here we assume that a file creation
                 # and population attempt was successful
                 if [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] && [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" ] ; then
+                    trap 'rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true' 0
                     [ -n "${REFREPODIR_REPO}" ] \
                     && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
                     ###echo "======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
