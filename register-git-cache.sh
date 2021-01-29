@@ -169,7 +169,7 @@ do_list_remotes() {
             local REFREPODIR_REPO=''
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            { git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1" "REPODIR}'
+            { git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}'
             # Note: the trailing column is empty for discoveries/runs without REFREPODIR
         ) &
       done ; wait) | sort | uniq
@@ -178,8 +178,8 @@ do_list_remotes() {
 do_list_subrepos() {
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
-        do_list_remotes "$@" | while read HASH REFREPODIR_REPO ; do
-            (   echo "===== Checking submodules (if any) under tip hash '$HASH' $REFREPODIR_REPO..." >&2
+        do_list_remotes "$@" | while IFS="`printf '\t'`" read HASH GITREF REFREPODIR_REPO ; do
+            (   echo "===== Checking submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO..." >&2
                 [ -n "${REFREPODIR_REPO}" ] \
                     && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
                 git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url
