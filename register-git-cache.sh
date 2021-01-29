@@ -426,7 +426,7 @@ do_fetch_repos() {
                     R_="$R_ $R"
                     FETCHED_REPO["$U"]="$D"
                 else
-                    echo "===== (fetcher:default) SKIP: Git URL '$U' was already fetched for subdirectory '${FETCHED_REPO["$U"]}' - not re-fetching into '$D'" >&2
+                    echo "===== (fetcher:default) SKIP: Git URL '$U' was already considered for subdirectory '${FETCHED_REPO["$U"]}' - not re-fetching into '$D'" >&2
                 fi
             else
                 # Hit a new value in directory column, fetch the list collected
@@ -456,7 +456,7 @@ do_fetch_repos() {
                     FETCHED_REPO["$U"]="$D"
                 else
                     R_=''
-                    echo "===== (fetcher:default) SKIP: Git URL '$U' was already fetched for subdirectory '${FETCHED_REPO["$U"]}' - not re-fetching into '$D'" >&2
+                    echo "===== (fetcher:default) SKIP: Git URL '$U' was already considered for subdirectory '${FETCHED_REPO["$U"]}' - not re-fetching into '$D'" >&2
                 fi
             fi
           done
