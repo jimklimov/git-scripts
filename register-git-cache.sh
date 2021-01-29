@@ -209,16 +209,6 @@ do_list_subrepos() {
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
 
-        # We actually want to retain data in TEMPDIR_BASE to avoid discovering
-        # it from same commit hashes again and again
-        # TODO: Garbage-collection in TEMPDIR_BASE as we would change HEADs,
-        # delete repos, known old pulls, tags and/or branches etc. over time?
-        TEMPDIR_BASE="${REFREPODIR_BASE}/.git.cache.rgc"
-        # Absolutize to be sure
-        mkdir -p "$TEMPDIR_BASE"
-        TEMPDIR_BASE="$(cd "$TEMPDIR_BASE" && pwd)"
-        # TODO: Move to top of script file to avoid conflicts?
-        rm -f "${TEMPDIR_BASE}"/*.tmp || true
         TEMPDIR_SUBURLS="`mktemp -d --tmpdir="$TEMPDIR_BASE" subrepos.$$.XXXXXXXX`" && [ -n "$TEMPDIR_SUBURLS" ] && [ -d "$TEMPDIR_SUBURLS" ] || TEMPDIR_SUBURLS=""
         if [ -n "$TEMPDIR_SUBURLS" ] ; then
             # Absolutize to be sure
@@ -679,6 +669,16 @@ if [ -z "$SKIP_LOCK" ] && [ "$1" != "--dev-test" ] ; then
   ( echo "$$" ; hostname ) > "$LOCK"
   trap 'rm -rf "$LOCK"' 0 1 2 3 15
 fi
+
+# We actually want to retain data in TEMPDIR_BASE to avoid discovering
+# it from same commit hashes again and again
+# TODO: Garbage-collection in TEMPDIR_BASE as we would change HEADs,
+# delete repos, known old pulls, tags and/or branches etc. over time?
+TEMPDIR_BASE="${REFREPODIR_BASE}/.git.cache.rgc"
+# Absolutize to be sure
+mkdir -p "$TEMPDIR_BASE"
+TEMPDIR_BASE="$(cd "$TEMPDIR_BASE" && pwd)"
+rm -f "${TEMPDIR_BASE}"/*.tmp || true
 
 ACTIONS=""
 while [ $# -gt 0 ]; do
