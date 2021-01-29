@@ -215,12 +215,24 @@ do_register_repos_recursive() {
     local REPO_LIST TOPREPO_LIST
     declare -a REPO_LIST
     declare -a TOPREPO_LIST
-    for REPO in "$@" ; do
-        [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
-        && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 ; } \
-        || { is_repo_not_excluded "$REPO" && TOPREPO_LIST+=( "$REPO" ) ; }
-        # Note: is_repo_not_excluded() returns 0 to go on processing the repo
-    done
+
+    if [ $# = 0 ]; then
+        # A special case for top-level recursive handler from CLI:
+        # recursive calls would have a RECURSE_MODE and another arg
+        # (even if that would be an empty token).
+        echo "Caller specified a RECURSE_MODE as the only argument, so list all known Git URLs and refresh submodules that they might reference" >&2
+        if [ "$DO_FETCH" = false ] ; then
+            echo "Caller asked to not re-fetch Git URLs already registered - probably they were recently refreshed in a separate call" >&2
+        fi
+        TOPREPO_LIST+=( `QUIET_SKIP=yes do_list_repoids | awk '{print $2}' | sort | uniq` )
+    else
+        for REPO in "$@" ; do
+            [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
+            && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 ; } \
+            || { is_repo_not_excluded "$REPO" && TOPREPO_LIST+=( "$REPO" ) ; }
+            # Note: is_repo_not_excluded() returns 0 to go on processing the repo
+        done
+    fi
 
     # First register the nearest-level repos
     for REPO in "${TOPREPO_LIST[@]}" ; do
@@ -247,8 +259,8 @@ do_register_repos_recursive() {
             echo "=== Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..."
         else
             # We need the (recent) contents to look into .gitmodules files later
-            echo "=== Fetch '$REPO' contents..."
-            do_fetch_repos "$REPO" || { RES=$?; continue ; }
+            echo "=== Fetch '$REPO' contents for recursion analysis..."
+            do_fetch_repos "$REPO" || RES=$?
         fi
     done
 
@@ -642,8 +654,13 @@ EOF
             shift
             # Note: also fetches contents to dig into submodules,
             # unless DO_FETCH=false is specified
-            do_register_repos_recursive "$@" || BIG_RES=$?
-            shift $#
+            if [ $# = 0 ]; then
+                do_register_repos_recursive all || BIG_RES=$?
+            else
+                # Assume list of Git URLs; note it can be prohibitively long for shell interpreter limits
+                do_register_repos_recursive "$@" || BIG_RES=$?
+                shift $#
+            fi
             DID_UPDATE=true
             ;;
         clone|checkout|co)
