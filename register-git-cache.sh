@@ -242,7 +242,7 @@ do_list_subrepos() {
                     ###echo "======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
 
                     git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url \
-                    | tr -d ' \t' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' \
+                    | sed -e 's,[ \t]*,,g' -e '/^url=/!d' -e 's,^url=,,' \
                     > "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" \
                     && mv -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls"
                     # If we did not succeed for whatever reason, no final file should appear
