@@ -217,6 +217,8 @@ do_list_subrepos() {
         # Absolutize to be sure
         mkdir -p "$TEMPDIR_BASE"
         TEMPDIR_BASE="$(cd "$TEMPDIR_BASE" && pwd)"
+        # TODO: Move to top of script file to avoid conflicts?
+        rm -f "${TEMPDIR_BASE}"/*.tmp || true
         TEMPDIR_SUBURLS="`mktemp -d --tmpdir="$TEMPDIR_BASE" subrepos.$$.XXXXXXXX`" && [ -n "$TEMPDIR_SUBURLS" ] && [ -d "$TEMPDIR_SUBURLS" ] || TEMPDIR_SUBURLS=""
         if [ -n "$TEMPDIR_SUBURLS" ] ; then
             # Absolutize to be sure
