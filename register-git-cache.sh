@@ -138,7 +138,7 @@ do_register_repo() {
         && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' already registered during this run" ; } \
         && return 42
 
-    is_repo_not_excluded "$REPO" || return 0 # not a fatal error, just a skip (reported there)
+    is_repo_not_excluded "$REPO" || return 0 # being excluded is not a fatal error, just a skip (reported there)
 
     local REFREPODIR_REPO
     [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
@@ -190,6 +190,8 @@ do_list_subrepos() {
     # ...in the end, return all unique Git URLs registered as git submodules
 }
 
+# Track which repos (URLs) we have inspected during the recursion -
+# whether new registrations or previously existing population, here:
 declare -A REGISTERED_RECURSIVELY_NOW
 do_register_repos_recursive() {
     # Register each repo URL and dig into all branches' `.gitmodules` file to recurse
@@ -203,6 +205,7 @@ do_register_repos_recursive() {
     local _RES=0
     local RECURSE_MODE="all"
 
+    # Exit recursion; for call to refresh all already registered URLs pass $1=="all"
     if [ $# = 0 ]; then return 0; fi
 
     case "$1" in
@@ -222,6 +225,11 @@ do_register_repos_recursive() {
     # First register the nearest-level repos
     for REPO in "${TOPREPO_LIST[@]}" ; do
         echo "=== Register '$REPO' or see if it is already here..."
+        # Repos disliked by exclude pattern were filtered away above, as
+        # well as repos already visited in other recursion codepaths.
+        # Other repos that existed earlier we want to dig into, except for
+        # code 42 (means skip because already registered during this run,
+        # as a double failsafe precaution - e.g. listed twice in CLI args):
         do_register_repo "$REPO" || { _RES=$?; [ "${_RES}" = 42 ] || RES="${_RES}"; continue ; }
         REGISTERED_RECURSIVELY_NOW["$REPO"]=1
 
@@ -632,10 +640,11 @@ EOF
             ;;
         add-recursive)
             shift
-            # Note: also fetches contents to dig into submodules
+            # Note: also fetches contents to dig into submodules,
+            # unless DO_FETCH=false is specified
             do_register_repos_recursive "$@" || BIG_RES=$?
-            DID_UPDATE=true
             shift $#
+            DID_UPDATE=true
             ;;
         clone|checkout|co)
             do_register_repo "$2" \
