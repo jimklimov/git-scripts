@@ -230,6 +230,11 @@ do_register_repos_recursive() {
             echo "Caller asked to not re-fetch Git URLs already registered - probably they were recently refreshed in a separate call" >&2
         fi
         TOPREPO_LIST+=( `QUIET_SKIP=yes do_list_repoids | awk '{print $2}' | sort | uniq` )
+        echo "Discovered the following currently-known Git URLs for further recursion: ${TOPREPO_LIST[*]}" >&2
+        if [ "${#TOPREPO_LIST[@]}" = 0 ]; then
+            echo "FAILED: No Git URLs found under `pwd`, aborting the recursive inspection" >&2
+            return 1
+        fi
     else
         for REPO in "$@" ; do
             [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
