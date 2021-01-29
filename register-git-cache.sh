@@ -172,38 +172,95 @@ do_register_repo() {
 do_list_remotes() {
     # For each arg, do git-ls-remote - List references in a remote repository
     # (NOT listing of known remote repo IDs - see do_list_repoids() for that)
-    ( for REPO in "$@" ; do
+    ( TEMPDIR_REMOTES="`mktemp -d --tmpdir rgc.XXXXXX`" && [ -n "$TEMPDIR_REMOTES" ] && [ -d "$TEMPDIR_REMOTES" ] || TEMPDIR_REMOTES=""
+      if [ -n "$TEMPDIR_REMOTES" ] ; then
+        # Absolutize to be sure
+        TEMPDIR_REMOTES="$(cd "$TEMPDIR_REMOTES" && pwd)"
+        #trap 'echo "do_list_remotes(): REMOVING TEMPDIR_REMOTES=$TEMPDIR_REMOTES">&2 && rm -rf "$TEMPDIR_REMOTES"' 0
+        trap 'rm -rf "$TEMPDIR_REMOTES"' 0
+      else
+        echo "do_list_remotes(): Failed to create TEMPDIR_REMOTES" >&2
+        exit 1
+      fi
+      # Temp files proved crucial to not mix up stdout's from parallel child
+      # processes which happened sometimes in the original implementation
+
+      for REPO in "$@" ; do
         echo "===== Listing remotes of '$REPO'..." >&2
         is_repo_not_excluded "$REPO" || continue # not a fatal error, just a skip (reported there)
         (
             local REFREPODIR_REPO=''
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            { git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}'
+            { git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}' > "`mktemp --tmpdir="$TEMPDIR_REMOTES" remote-refs.XXXXXXXXXXXX`"
             # Note: the trailing column is empty for discoveries/runs without REFREPODIR
         ) &
         throttle_running_child_count
-      done ; wait) | sort | uniq
+      done
+      wait
+      sync
+      if [ -n "`ls -1 "${TEMPDIR_REMOTES}/"`" ]; then
+          cat "$TEMPDIR_REMOTES"/* || true
+      fi
+    ) | sort | uniq
 }
 
 do_list_subrepos() {
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
+
+        # We actually want to retain data in TEMPDIR_BASE to avoid discovering
+        # it from same commit hashes again and again
+        # TODO: Garbage-collection in TEMPDIR_BASE as we would change HEADs,
+        # delete repos, known old pulls, tags and/or branches etc. over time?
+        TEMPDIR_BASE="${REFREPODIR_BASE}/.git.cache.rgc"
+        # Absolutize to be sure
+        mkdir -p "$TEMPDIR_BASE"
+        TEMPDIR_BASE="$(cd "$TEMPDIR_BASE" && pwd)"
+        TEMPDIR_SUBURLS="`mktemp -d --tmpdir="$TEMPDIR_BASE" subrepos.$$.XXXXXXXX`" && [ -n "$TEMPDIR_SUBURLS" ] && [ -d "$TEMPDIR_SUBURLS" ] || TEMPDIR_SUBURLS=""
+        if [ -n "$TEMPDIR_SUBURLS" ] ; then
+            # Absolutize to be sure
+            TEMPDIR_SUBURLS="$(cd "$TEMPDIR_SUBURLS" && pwd)"
+            #trap 'echo "do_list_subrepos(): REMOVING TEMPDIR_SUBURLS=$TEMPDIR_SUBURLS">&2 && rm -rf "$TEMPDIR_SUBURLS"' 0
+            trap 'rm -rf "$TEMPDIR_SUBURLS"' 0
+        else
+            echo "do_list_subrepos(): Failed to create TEMPDIR_SUBURLS" >&2
+            exit 1
+        fi
+
         do_list_remotes "$@" | while IFS="`printf '\t'`" read HASH GITREF REFREPODIR_REPO ; do
             echo "===== Checking submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO..." >&2
             # After pretty reporting, constrain the list to unique items for inspection
             echo "$HASH $REFREPODIR_REPO"
         done | sort | uniq | \
         while read HASH REFREPODIR_REPO ; do
-            (   [ -n "${REFREPODIR_REPO}" ] \
+            (   # Note the 'test -e': here we assume that a file creation
+                # and population attempt was successful
+                if [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] ; then
+                    [ -n "${REFREPODIR_REPO}" ] \
                     && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-                ###echo "======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
-                git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url
+                    ###echo "======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
+
+                    git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url \
+                    | tr -d ' \t' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' \
+                    > "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" \
+                    && mv -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls"
+                    # If we did not succeed for whatever reason, no final file should appear
+                    rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true
+                fi
+                if [ -s "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] ; then
+                    # Do not link to empty files to cat them below
+                    ln "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" "${TEMPDIR_SUBURLS}/"
+                fi
             ) &
             throttle_running_child_count
         done
-    wait ) \
-    | tr -d ' \t' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
+        wait
+        sync
+        if [ -n "`ls -1 "${TEMPDIR_SUBURLS}/"`" ]; then
+            cat "${TEMPDIR_SUBURLS}/"*:.gitmodules-urls
+        fi
+    ) | sort | uniq
     # ...in the end, return all unique Git URLs registered as git submodules
 }
 
