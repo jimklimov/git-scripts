@@ -338,7 +338,7 @@ do_fetch_repos_verbose_seq() (
             { [ -n "${REFREPODIR_REPO}" ] || \
               { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            echo "===== (fetcher:verbose:seq) Starting $U ($R) in `pwd` :"
+            echo "=== (fetcher:verbose:seq) Starting $U ($R) in `pwd` :"
             git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
                 && git fetch -f --tags --progress "$R" \
                 && echo "===== (fetcher:verbose:seq) Completed $U ($R) in `pwd`"
@@ -400,7 +400,7 @@ do_fetch_repos() {
     # TODO: Can we pass a refspec to fetch all branches here?
     # Or should we follow up with another fetch (like verbose)?
     if [ -z "${REFREPODIR_MODE-}" ] ; then
-        echo "===== (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
+        echo "=== (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
         git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
     else
         local R U D
@@ -431,6 +431,7 @@ do_fetch_repos() {
             else
                 # Hit a new value in directory column, fetch the list collected
                 # for previous dir if any ('.' here is the starting value of D_)
+                echo "=== (fetcher:default) Preparing filtered list of Git URLs for dir '$D'..." >&2
                 if [ "$D_" != '.' ]; then
                     ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
                       if [ -z "$R_" ]; then
@@ -440,7 +441,7 @@ do_fetch_repos() {
                       echo "===== (fetcher:default:par) Processing refrepo dir '$D_': $R_" >&2
                       cd "$D_" || exit
                       git fetch -f -j8 --multiple --tags $R_ || \
-                      { echo "===== (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
+                      { echo "======= (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
                         git fetch -f --multiple --tags $R_ ; }
                     ) || RESw=$?
                 fi
@@ -657,14 +658,14 @@ EOF
                 for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
                     ( D="`dirname "$DG"`"
                       cd "$D" || exit
-                      echo "===== (fetcher:default:all) Processing refrepo dir '$D':" >&2
+                      echo "=== (fetcher:default:all) Processing refrepo dir '$D':" >&2
                         git fetch -f --all -j8 --prune --tags 2>/dev/null || \
                         { echo "===== (fetcher:default:all) Retry sequentially refrepo dir '$D_':" >&2 ;
                           git fetch -f --all --prune --tags ; }
                     )
                 done
             fi
-            echo "===== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
+            echo "=== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
             git fetch -f --all -j8 --prune --tags 2>/dev/null || \
             { echo "===== (fetcher:default:all) Retry sequentially refrepo dir '`pwd`':" >&2 ;
               git fetch -f --all --prune --tags ; }
