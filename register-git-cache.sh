@@ -625,6 +625,8 @@ $0 up-all                             => fetch new commits for all registered
                                          skipped by .exclude patterns if any)
 $0 co REPO_URL                        => register + fetch
 $0 del REPO_GLOB                      => unregister
+$0 dedup-references [REPO_URL...]     => unregister URLs that are listed many
+                                         times (e.g. when converting to fanout)
 where REPO_URL are singular original exact remote repository URLs
 and REPO_GLOB matches by substring of 'git remote -v' output
 
@@ -737,6 +739,23 @@ EOF
                 done
             fi
             DID_UPDATE=true
+            ;;
+        dedup-references)
+            shift
+            do_list_repoids "$@" | sort -k3r | \
+            (   RP=''; UP='';
+                while read R U D; do
+                    if [ "$U" = "$UP" ]; then
+                        echo "drop '$R' => '$U' in '$D'" >&2
+                        ( [ -z "$D" ] || { cd "$D" || exit; }
+                          git remote remove "$R"
+                        )
+                    fi
+                    UP="$U"
+                done
+            )
+            DID_UPDATE=true
+            shift $#
             ;;
         --dev-test)
             shift
