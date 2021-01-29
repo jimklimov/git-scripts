@@ -179,9 +179,14 @@ do_list_subrepos() {
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
         do_list_remotes "$@" | while IFS="`printf '\t'`" read HASH GITREF REFREPODIR_REPO ; do
-            (   echo "===== Checking submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO..." >&2
-                [ -n "${REFREPODIR_REPO}" ] \
+            echo "===== Checking submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO..." >&2
+            # After pretty reporting, constrain the list to unique items for inspection
+            echo "$HASH $REFREPODIR_REPO"
+        done | sort | uniq | \
+        while read HASH REFREPODIR_REPO ; do
+            (   [ -n "${REFREPODIR_REPO}" ] \
                     && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
+                ###echo "======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
                 git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url
             ) &
         done
