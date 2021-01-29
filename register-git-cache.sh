@@ -411,12 +411,32 @@ do_fetch_repos() {
         # Reverse sort, to prioritize presumed-smaller-scope (faster) repos in subdirs
         ( do_list_repoids "$@" | sort -k3r | uniq ; echo '. . .' ) | \
         ( RESw=0
+          # Track which repo URLs we have already fetched in specific-scoped
+          # subdirs, to not refetch those URLs in the root-dir wad (we keep
+          # it for history for now, but it is very slow to manage, even for
+          # its own updating fetches). So unconverted consumers might still
+          # use this directory, but if we deal with REFREPODIR mode then no
+          # point maintaining it for URLs handled by subdirs (no consumers
+          # expected really). It can be fully updated separately, by a run
+          # without REFREPODIR_MODE setting from caller.
+          declare -A FETCHED_REPO
           while read R U D ; do
             if [ "$D" = "$D_" ] ; then
-                R_="$R_ $R"
+                if [ -z "${FETCHED_REPO["$U"]-}" ]; then
+                    R_="$R_ $R"
+                    FETCHED_REPO["$U"]="$D"
+                else
+                    echo "===== (fetcher:default) SKIP: Git URL '$U' was already fetched for subdirectory '${FETCHED_REPO["$U"]}' - not re-fetching into '$D'" >&2
+                fi
             else
+                # Hit a new value in directory column, fetch the list collected
+                # for previous dir if any ('.' here is the starting value of D_)
                 if [ "$D_" != '.' ]; then
                     ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
+                      if [ -z "$R_" ]; then
+                          echo "===== (fetcher:default) SKIP: Git URL list is empty after selection - not re-fetching into '$D_'" >&2
+                          exit 0
+                      fi
                       echo "===== (fetcher:default:par) Processing refrepo dir '$D_': $R_" >&2
                       cd "$D_" || exit
                       git fetch -f -j8 --multiple --tags $R_ || \
@@ -425,10 +445,18 @@ do_fetch_repos() {
                     ) || RESw=$?
                 fi
                 if [ "$D" = '.' ]; then
+                    # Sentinel entry '. . .' was hit
                     break
                 fi
+                # Initialize next loop
                 D_="$D"
-                R_="$R"
+                if [ -z "${FETCHED_REPO["$U"]-}" ]; then
+                    R_="$R"
+                    FETCHED_REPO["$U"]="$D"
+                else
+                    R_=''
+                    echo "===== (fetcher:default) SKIP: Git URL '$U' was already fetched for subdirectory '${FETCHED_REPO["$U"]}' - not re-fetching into '$D'" >&2
+                fi
             fi
           done
           exit $RESw
