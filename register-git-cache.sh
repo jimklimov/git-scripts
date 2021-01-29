@@ -169,7 +169,7 @@ do_list_remotes() {
             local REFREPODIR_REPO=''
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            git ls-remote "$REPO" | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1" "REPODIR}'
+            { git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1" "REPODIR}'
             # Note: the trailing column is empty for discoveries/runs without REFREPODIR
         ) &
       done ; wait) | sort | uniq
@@ -313,10 +313,10 @@ do_list_repoids() {
     # the original URL.
     # TODO: Cleaner handling of REFREPODIR_* cases (e.g. match only $@
     # provided dirs, if any)?..
-    ( git remote -v
+    ( git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2
       if [ -n "${REFREPODIR_MODE-}" ] ; then
         for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
-            ( D="`dirname "$DG"`" && cd "$D" && git remote -v | sed 's,$, '"`basename "$D"`," )
+            ( D="`dirname "$DG"`" && cd "$D" && { git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; } | sed 's,$, '"`basename "$D"`," )
         done
       fi
     ) | \
