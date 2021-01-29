@@ -94,6 +94,16 @@ fi
 EXCEPT_PATTERNS_FILE="${REFREPODIR_BASE}/.except"
 [ -n "${QUIET_SKIP-}" ] || QUIET_SKIP=no
 
+# Throttling inspired by https://stackoverflow.com/a/8735146/4715872
+# TODO? Detect from CPU count
+[ -n "$MAXJOBS" ] && [ "$MAXJOBS" -gt 0 ] \
+|| MAXJOBS=8
+throttle_running_child_count() {
+    while [ "`jobs -pr | wc -l`" -ge $MAXJOBS ]; do
+        sleep 0.1
+    done
+}
+
 declare -A KNOWN_EXCLUDED
 is_repo_not_excluded() {
     # Returns 0 if we can go on registering/processing; 1 to skip this repo
@@ -172,6 +182,7 @@ do_list_remotes() {
             { git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}'
             # Note: the trailing column is empty for discoveries/runs without REFREPODIR
         ) &
+        throttle_running_child_count
       done ; wait) | sort | uniq
 }
 
@@ -189,6 +200,7 @@ do_list_subrepos() {
                 ###echo "======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
                 git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url
             ) &
+            throttle_running_child_count
         done
     wait ) \
     | tr -d ' \t' | GREP_OPTIONS= egrep '^url=' | sed -e 's,^url=,,' | sort | uniq
@@ -398,6 +410,7 @@ do_fetch_repos_verbose_par() (
                 || { RES=$? ; echo "(fetcher:verbose:par) FAILED TO FETCH : $U ($R) in `pwd` in background" >&2 ; exit $RES; }
             echo "===== (fetcher:verbose:par) Completed $U ($R) in `pwd` in background"
         ) &
+        throttle_running_child_count
         echo ""
     done
     wait || RES=$?
