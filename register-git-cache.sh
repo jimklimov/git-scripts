@@ -245,6 +245,7 @@ do_list_remotes() {
       if [ -n "`ls -1 "${TEMPDIR_REMOTES}/"`" ]; then
           cat "$TEMPDIR_REMOTES"/* || true
           if [ -n "$CI_TIME" ] || $DEBUG; then
+              echo "[D] `date`: Dumping raw discovery of git-references data:" >&2
               cat "${TEMPDIR_REMOTES}/"* >&2
           fi
       fi
@@ -318,6 +319,7 @@ do_list_subrepos() {
         if [ -n "`ls -1 "${TEMPDIR_SUBURLS}/"`" ]; then
             cat "${TEMPDIR_SUBURLS}/"*:.gitmodules-urls
             if [ -n "$CI_TIME" ] || $DEBUG; then
+                echo "[D] `date`: Dumping raw discovery of submodules data:" >&2
                 cat "${TEMPDIR_SUBURLS}/"*:.gitmodules-urls >&2
             fi
         fi
