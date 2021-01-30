@@ -207,6 +207,10 @@ do_register_repo() {
 do_list_remotes() {
     # For each arg, do git-ls-remote - List references in a remote repository
     # (NOT listing of known remote repo IDs - see do_list_repoids() for that)
+    if [ -n "$CI_TIME" ]; then
+        echo "[D] `date`: Discovering references from any tip commit of repo(s): $*" >&2
+    fi
+
     ( TEMPDIR_REMOTES="`mktemp -d --tmpdir rgc.XXXXXX`" && [ -n "$TEMPDIR_REMOTES" ] && [ -d "$TEMPDIR_REMOTES" ] || TEMPDIR_REMOTES=""
       if [ -n "$TEMPDIR_REMOTES" ] ; then
         # Absolutize to be sure
@@ -233,17 +237,32 @@ do_list_remotes() {
         ) &
         throttle_running_child_count
       done
+      if [ -n "$CI_TIME" ]; then
+          echo "[D] `date`: Waiting for subprocesses for discovery of references from any tip commit of repo(s): $*" >&2
+      fi
       wait
-      sync
+      $CI_TIME sync
       if [ -n "`ls -1 "${TEMPDIR_REMOTES}/"`" ]; then
           cat "$TEMPDIR_REMOTES"/* || true
+          if [ -n "$CI_TIME" ] || $DEBUG; then
+              cat "${TEMPDIR_REMOTES}/"* >&2
+          fi
+      fi
+      if [ -n "$CI_TIME" ]; then
+          echo "[D] `date`: Completed raw discovery of references from any tip commit of repo(s): $*" >&2
       fi
     ) | sort | uniq
+    if [ -n "$CI_TIME" ]; then
+        echo "[D] `date`: Finished discovering and filtering references from any tip commit of repo(s): $*" >&2
+    fi
 }
 
 do_list_subrepos() {
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
+        if [ -n "$CI_TIME" ]; then
+            echo "[D] `date`: Discovering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
+        fi
 
         TEMPDIR_SUBURLS="`mktemp -d --tmpdir="$TEMPDIR_BASE" subrepos.$$.XXXXXXXX`" && [ -n "$TEMPDIR_SUBURLS" ] && [ -d "$TEMPDIR_SUBURLS" ] || TEMPDIR_SUBURLS=""
         if [ -n "$TEMPDIR_SUBURLS" ] ; then
@@ -256,9 +275,6 @@ do_list_subrepos() {
             exit 1
         fi
 
-        if [ -n "$CI_TIME" ]; then
-            echo "[D] `date`: Discovering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
-        fi
         do_list_remotes "$@" | while IFS="`printf '\t'`" read HASH GITREF REFREPODIR_REPO ; do
             echo "===== Checking submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO..." >&2
             # After pretty reporting, constrain the list to unique items for inspection
@@ -349,6 +365,9 @@ do_register_repos_recursive() {
             return 1
         fi
     else
+        if [ -n "$CI_TIME" ]; then
+            echo "[D] `date`: Recursing into possible submodules of repo URL(s): $*" >&2
+        fi
         for REPO in "$@" ; do
             [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
             && { $QUIET_SKIP || echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 ; } \
@@ -359,12 +378,12 @@ do_register_repos_recursive() {
 
     # First register the nearest-level repos
     for REPO in "${TOPREPO_LIST[@]}" ; do
-        echo "[I] `date`: === Register '$REPO' or see if it is already here..."
         # Repos disliked by exclude pattern were filtered away above, as
         # well as repos already visited in other recursion codepaths.
         # Other repos that existed earlier we want to dig into, except for
         # code 42 (means skip because already registered during this run,
         # as a double failsafe precaution - e.g. listed twice in CLI args):
+        echo "[I] `date`: === Register '$REPO' or see if it is already here..." >&2
         do_register_repo "$REPO" || { _RES=$?; [ "${_RES}" = 42 ] || RES="${_RES}"; continue ; }
         REGISTERED_RECURSIVELY_NOW["$REPO"]=1
 
@@ -379,10 +398,10 @@ do_register_repos_recursive() {
         esac
 
         if [ "$DO_FETCH" = false ] && [ "${REGISTERED_NOW["$REPO"]}" != 1 ] ; then
-            echo "[I] `date`: === Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..."
+            echo "[I] `date`: === Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..." >&2
         else
             # We need the (recent) contents to look into .gitmodules files later
-            echo "[I] `date`: === Fetch '$REPO' contents for recursion analysis..."
+            echo "[I] `date`: === Fetch '$REPO' contents for recursion analysis..." >&2
             do_fetch_repos "$REPO" || RES=$?
         fi
     done
@@ -394,9 +413,13 @@ do_register_repos_recursive() {
             $QUIET_SKIP || echo "SKIP: '$REPO' was already inspected recursively during this run and got requested again" >&2
             continue
         fi
-        echo "[I] `date`: ===== Recursively register '$SUBREPO'..."
+        echo "[I] `date`: ===== Recursively register '$SUBREPO'..." >&2
         do_register_repos_recursive "$RECURSE_MODE" "$SUBREPO" || RES=$?
     done
+
+    if [ -n "$CI_TIME" ]; then
+        echo "[D] `date`: Finished ($RES) recursing into possible submodules of repo URL(s): $*" >&2
+    fi
 
     return $RES
 }
@@ -441,6 +464,9 @@ do_list_repoids() {
     # the original URL.
     # TODO: Cleaner handling of REFREPODIR_* cases (e.g. match only $@
     # provided dirs, if any)?..
+    if [ -n "$CI_TIME" ]; then
+        echo "[D] `date`: Listing repoid's and locations for repo URL(s): $*" >&2
+    fi
     ( $CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2
       if [ -n "${REFREPODIR_MODE-}" ] ; then
         for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
@@ -471,6 +497,9 @@ do_list_repoids() {
             done
         fi
     done
+    if [ -n "$CI_TIME" ]; then
+        echo "[D] `date`: Finished listing repoid's and locations for repo URL(s): $*" >&2
+    fi
 }
 
 do_fetch_repos_verbose_seq() (
