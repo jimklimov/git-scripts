@@ -479,6 +479,9 @@ do_register_repos_recursive() {
     fi
 
     # Then look inside for unique submodule URLs
+    # TODO?: For REFREPODIR_MODE, group repos in same directory to
+    # check and dedup their likely-crossing hashes once and for all
+    # (currently dropped from do_list_repoids()|awk... lookup above)
     for SUBREPO in `do_list_subrepos "${REPO_LIST[@]}"`; do
         # Avoid recursing to speed up - lots of operations there we know we would do in vain
         if [ "${REGISTERED_RECURSIVELY_NOW["$SUBREPO"]}" = 1 ] ; then
@@ -487,6 +490,8 @@ do_register_repos_recursive() {
         fi
         echo "[I] `date`: ===== Recursively register '$SUBREPO'..." >&2
         do_register_repos_recursive "$RECURSE_MODE" "$SUBREPO" || RES=$?
+        # Now we've certainly handled this URL:
+        REGISTERED_RECURSIVELY_NOW["$SUBREPO"]=1
     done
 
     if [ -n "$CI_TIME" ]; then
