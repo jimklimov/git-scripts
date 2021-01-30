@@ -246,7 +246,9 @@ do_list_remotes() {
             local REFREPODIR_REPO=''
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            { $CI_TIME git ls-remote "$REPO" || echo "[I] `date`: FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}' > "`mktemp --tmpdir="$TEMPDIR_REMOTES" remote-refs.XXXXXXXXXXXX`"
+            { $CI_TIME git ls-remote "$REPO" || echo "[I] `date`: FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } \
+                | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}' \
+                > "`mktemp --tmpdir="$TEMPDIR_REMOTES" remote-refs.XXXXXXXXXXXX`"
             # Note: the trailing column is empty for discoveries/runs without REFREPODIR
             # And we ignore here faults like absent remotes... or invalid Git dirs...
         ) &
@@ -302,16 +304,16 @@ do_list_subrepos() {
                 if [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] && [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" ] ; then
                     trap 'rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true' 0
                     [ -n "${REFREPODIR_REPO}" ] \
-                    && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
+                        && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
                     if $CI_TIME_LOOPS ; then
                         echo "[D] `date`: ======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
                         $CI_TIME git show "${HASH}:.gitmodules"
                     else
                         git show "${HASH}:.gitmodules" 2>/dev/null
                     fi \
-                    | sed -e 's,[ \t\r\n]*,,g' -e '/^url=/!d' -e 's,^url=,,' \
-                    > "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" \
-                    && mv -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls"
+                        | sed -e 's,[ \t\r\n]*,,g' -e '/^url=/!d' -e 's,^url=,,' \
+                        > "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" \
+                        && mv -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls"
                     # If we did not succeed for whatever reason, no final file should appear
                     rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true
                 else
