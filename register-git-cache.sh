@@ -164,7 +164,7 @@ is_repo_not_excluded() {
         [ -n "$PAT" ] || continue
         case "$REPO" in
             "#"*) continue ;;
-            $PAT)
+            $PAT|$PAT.git)
                 $QUIET_SKIP || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2
                 KNOWN_EXCLUDED["$REPO"]=1
                 return 1
