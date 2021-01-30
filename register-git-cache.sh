@@ -73,6 +73,12 @@ case "${CI_TIME-}" in
     *) CI_TIME="" ;;
 esac
 
+# Should we dig into loops (more data, more impact from collecting it)?
+case "${CI_TIME_LOOPS-}" in
+    [Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]) CI_TIME_LOOPS="true" ;;
+    *) CI_TIME_LOOPS="false" ;;
+esac
+
 if [ "${DEBUG-}" = true ]; then
     set -x
 else
@@ -253,7 +259,7 @@ do_list_remotes() {
       $CI_TIME sync
       if [ -n "`ls -1 "${TEMPDIR_REMOTES}/"`" ]; then
           cat "$TEMPDIR_REMOTES"/* || true
-          if [ -n "$CI_TIME" ] || $DEBUG; then
+          if $CI_TIME_LOOPS || $DEBUG; then
               echo "[D] `date`: Dumping raw discovery of git-references data:" >&2
               cat "${TEMPDIR_REMOTES}/"* >&2
           fi
@@ -297,7 +303,7 @@ do_list_subrepos() {
                     trap 'rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true' 0
                     [ -n "${REFREPODIR_REPO}" ] \
                     && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-                    if [ -n "$CI_TIME" ]; then
+                    if $CI_TIME_LOOPS ; then
                         echo "[D] `date`: ======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
                         $CI_TIME git show "${HASH}:.gitmodules"
                     else
@@ -327,7 +333,7 @@ do_list_subrepos() {
         $CI_TIME sync
         if [ -n "`ls -1 "${TEMPDIR_SUBURLS}/"`" ]; then
             cat "${TEMPDIR_SUBURLS}/"*:.gitmodules-urls
-            if [ -n "$CI_TIME" ] || $DEBUG; then
+            if $CI_TIME_LOOPS || $DEBUG; then
                 echo "[D] `date`: Dumping raw discovery of submodules data:" >&2
                 cat "${TEMPDIR_SUBURLS}/"*:.gitmodules-urls >&2
             fi
