@@ -547,7 +547,7 @@ do_fetch_repos_verbose_seq() (
             echo "[I] `date`: === (fetcher:verbose:seq) Starting $U ($R) in `pwd` :" >&2
             $CI_TIME git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
                 && $CI_TIME git fetch -f --tags --progress "$R" \
-                && echo "[I] `date`: ===== (fetcher:verbose:seq) Completed $U ($R) in `pwd`" .&2
+                && echo "[I] `date`: ===== (fetcher:verbose:seq) Completed $U ($R) in `pwd`" >&2
         ) || { RES=$? ; echo "[I] `date`: (fetcher:verbose:seq) FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
     done
