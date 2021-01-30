@@ -309,12 +309,16 @@ do_list_subrepos() {
             # After pretty reporting, constrain the list to unique items for inspection
             echo "$HASH $REFREPODIR_REPO"
         done | sort | uniq | \
-        ( echo "[D] `date`: Searching commits listed above (if any) for unique URLs from .gitmodules (if any)..." >&2
+        ( local FIRSTLOOP=true
           declare -A PREEXISTING_MODDATA
           for F in $(cd ${TEMPDIR_BASE}/ && ls -1) ; do
             PREEXISTING_MODDATA["$F"]=1
           done
           while read HASH REFREPODIR_REPO ; do
+            # This should fire only after stdin pours in - when sort|uniq
+            # pipes are done and "under tip" log above no longer streams
+            $FIRSTLOOP && echo "[D] `date`: Searching commits listed above (if any) for unique URLs from .gitmodules (if any)..." >&2
+            FIRSTLOOP=false
             (   # Note the 'test -e': here we assume that a file creation
                 # and population attempt was successful
                 if $CI_TIME_LOOPS; then
