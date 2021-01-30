@@ -66,8 +66,17 @@
 # Original development tracked at https://github.com/jimklimov/git-scripts
 #
 
-if [ "$DEBUG" = true ]; then
+# Just prepend $CI_TIME to a command line to optionally profile it:
+case "${CI_TIME-}" in
+    time|time_wrapper|*/time) ;;
+    [Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]) CI_TIME="time_wrapper" ;;
+    *) CI_TIME="" ;;
+esac
+
+if [ "${DEBUG-}" = true ]; then
     set -x
+else
+    DEBUG=false
 fi
 
 # NOTE: Currently all the support happens without extra recursion,
@@ -99,9 +108,32 @@ EXCEPT_PATTERNS_FILE="${REFREPODIR_BASE}/.except"
 [ -n "$MAXJOBS" ] && [ "$MAXJOBS" -gt 0 ] \
 || MAXJOBS=8
 throttle_running_child_count() {
+    local SLEPT=false
     while [ "`jobs -pr | wc -l`" -ge $MAXJOBS ]; do
         sleep 0.1
+        SLEPT=true
     done
+    if $SLEPT && ( $DEBUG || [ -n "$CI_TIME" ] ) ; then
+        echo "[D] `date`: Was blocked due to child subprocessess, now proceeding" >&2
+    fi
+}
+
+# Detect a time-stamping capable (GNU) date in the current system
+for GDATE in ${GDATE-} gdate date false ; do
+    D="`$GDATE -u +%s 2>/dev/null`" && [ -n "$D" ] && [ "$D" -gt 0 ] && break
+done
+if [ "$GDATE" = false ]; then GDATE=""; fi
+
+time_wrapper() {
+    local TS_START=0
+    local TS_END=0
+    local SUB_RES=0
+    local TS_TEXT=''
+    [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
+    time "$@" || SUB_RES=$?
+    [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" in $(($TS_END - $TS_START)) whole seconds"; }
+    echo "[D] `date`: Completed command with code ${SUB_RES}${TS_TEXT}: $*" >&2
+    return $SUB_RES
 }
 
 declare -A KNOWN_EXCLUDED
@@ -156,14 +188,14 @@ do_register_repo() {
 
     [ -e .git ] || [ -s HEAD ] || \
         ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
-          git init --bare && git config gc.auto 0 ) || exit $?
+          $CI_TIME git init --bare && $CI_TIME git config gc.auto 0 ) || exit $?
 
-    git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered in `pwd`" && return 0
+    $CI_TIME git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered in `pwd`" && return 0
 
     sleep 1 # ensure unique ID
     local REPOID="repo-`date -u +%s`"
-    git remote add "$REPOID" "$REPO" \
-    && git remote set-url --push "$REPOID" no_push \
+    $CI_TIME git remote add "$REPOID" "$REPO" \
+    && $CI_TIME git remote set-url --push "$REPOID" no_push \
     && echo "OK: Registered repo '$REPOID' => '$REPO' in `pwd`" \
     && REGISTERED_NOW["$REPO"]=1
 #?#    && REGISTERED_NOW["$REPOID"]="$REPO"
@@ -192,7 +224,7 @@ do_list_remotes() {
             local REFREPODIR_REPO=''
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            { git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}' > "`mktemp --tmpdir="$TEMPDIR_REMOTES" remote-refs.XXXXXXXXXXXX`"
+            { $CI_TIME git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}' > "`mktemp --tmpdir="$TEMPDIR_REMOTES" remote-refs.XXXXXXXXXXXX`"
             # Note: the trailing column is empty for discoveries/runs without REFREPODIR
         ) &
         throttle_running_child_count
@@ -234,7 +266,7 @@ do_list_subrepos() {
                     && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
                     ###echo "======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
 
-                    git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url \
+                    $CI_TIME git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url \
                     | sed -e 's,[ \t\r\n]*,,g' -e '/^url=/!d' -e 's,^url=,,' \
                     > "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" \
                     && mv -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls"
@@ -361,13 +393,13 @@ do_unregister_repo() {
         && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd >/dev/null ; trap - RETURN' RETURN || return $? ; }
 
     # There may happen to be several registrations for same URL
-    REPO_IDS="`git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
+    REPO_IDS="`$CI_TIME git remote -v | GREP_OPTIONS= grep -i "$REPO" | awk '{print $1}' | sort | uniq`" || REPO_IDS=""
     [ -z "$REPO_IDS" ] && echo "SKIP: Repo '$REPO' not registered in `pwd`" && return 0
 
     RES=0
     for REPO_ID in $REPO_IDS ; do
         echo "=== Unregistering repository ID '$REPO_ID' from `pwd`..."
-        git remote remove "$REPO_ID" || RES=$?
+        $CI_TIME git remote remove "$REPO_ID" || RES=$?
     done
     return $RES
 }
@@ -390,10 +422,10 @@ do_list_repoids() {
     # the original URL.
     # TODO: Cleaner handling of REFREPODIR_* cases (e.g. match only $@
     # provided dirs, if any)?..
-    ( git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2
+    ( $CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2
       if [ -n "${REFREPODIR_MODE-}" ] ; then
         for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
-            ( D="`dirname "$DG"`" && cd "$D" && { git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; } | sed 's,$, '"`basename "$D"`," )
+            ( D="`dirname "$DG"`" && cd "$D" && { $CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; } | sed 's,$, '"`basename "$D"`," )
         done
       fi
     ) | \
@@ -436,8 +468,8 @@ do_fetch_repos_verbose_seq() (
               { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
             echo "=== (fetcher:verbose:seq) Starting $U ($R) in `pwd` :"
-            git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
-                && git fetch -f --tags --progress "$R" \
+            $CI_TIME git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
+                && $CI_TIME git fetch -f --tags --progress "$R" \
                 && echo "===== (fetcher:verbose:seq) Completed $U ($R) in `pwd`"
         ) || { RES=$? ; echo "(fetcher:verbose:seq) FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
@@ -460,8 +492,8 @@ do_fetch_repos_verbose_par() (
               { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
             echo "=== (fetcher:verbose:par) Starting $U ($R) in `pwd` in background..."
-            git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
-                && git fetch -f --tags --progress "$R" \
+            $CI_TIME git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
+                && $CI_TIME git fetch -f --tags --progress "$R" \
                 || { RES=$? ; echo "(fetcher:verbose:par) FAILED TO FETCH : $U ($R) in `pwd` in background" >&2 ; exit $RES; }
             echo "===== (fetcher:verbose:par) Completed $U ($R) in `pwd` in background"
         ) &
@@ -481,7 +513,7 @@ do_fetch_repos() {
         -vs|-v)
             shift
             if [ $# = 0 ] && [ -z "${REFREPODIR_MODE-}" ] ; then
-                git remote -v | GREP_OPTIONS= grep fetch | awk '{print $1" "$2}'
+                $CI_TIME git remote -v | GREP_OPTIONS= grep fetch | awk '{print $1" "$2}'
             else
                 if [ -z "${REFREPODIR_MODE-}" ] ; then
                     do_list_repoids "$@"
@@ -499,7 +531,7 @@ do_fetch_repos() {
     # Or should we follow up with another fetch (like verbose)?
     if [ -z "${REFREPODIR_MODE-}" ] ; then
         echo "=== (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
-        git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
+        $CI_TIME git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
     else
         local R U D
         local D_='.'
@@ -537,9 +569,9 @@ do_fetch_repos() {
                       fi
                       echo "===== (fetcher:default:par) Processing refrepo dir '$D_': $R_" >&2
                       cd "$D_" || exit
-                      git fetch -f -j8 --multiple --tags $R_ || \
+                      $CI_TIME git fetch -f -j8 --multiple --tags $R_ || \
                       { echo "======= (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
-                        git fetch -f --multiple --tags $R_ ; }
+                        $CI_TIME git fetch -f --multiple --tags $R_ ; }
                     ) || RESw=$?
                 fi
                 if [ "$D" = '.' ]; then
@@ -776,16 +808,16 @@ EOF
                     ( D="`dirname "$DG"`"
                       cd "$D" || exit
                       echo "=== (fetcher:default:all) Processing refrepo dir '$D':" >&2
-                        git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+                        $CI_TIME git fetch -f --all -j8 --prune --tags 2>/dev/null || \
                         { echo "===== (fetcher:default:all) Retry sequentially refrepo dir '$D_':" >&2 ;
-                          git fetch -f --all --prune --tags ; }
+                          $CI_TIME git fetch -f --all --prune --tags ; }
                     )
                 done
             fi
             echo "=== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
-            git fetch -f --all -j8 --prune --tags 2>/dev/null || \
+            $CI_TIME git fetch -f --all -j8 --prune --tags 2>/dev/null || \
             { echo "===== (fetcher:default:all) Retry sequentially refrepo dir '`pwd`':" >&2 ;
-              git fetch -f --all --prune --tags ; }
+              $CI_TIME git fetch -f --all --prune --tags ; }
             DID_UPDATE=true
             ;;
         fetch|update|pull|up)
@@ -794,27 +826,27 @@ EOF
             shift $#
             DID_UPDATE=true
             ;;
-        gc) git gc --prune=now || BIG_RES=$?
+        gc) $CI_TIME git gc --prune=now || BIG_RES=$?
             if [ -n "${REFREPODIR_MODE-}" ] ; then
                 for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
-                    ( cd "`dirname "$DG"`" && git gc --prune=now ) || BIG_RES=$?
+                    ( cd "`dirname "$DG"`" && $CI_TIME git gc --prune=now ) || BIG_RES=$?
                 done
             fi
             DID_UPDATE=true
             ;;
-        repack) git repack -A -d || BIG_RES=$?
+        repack) $CI_TIME git repack -A -d || BIG_RES=$?
             if [ -n "${REFREPODIR_MODE-}" ] ; then
                 for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
-                    ( cd "`dirname "$DG"`" && git repack -A -d ) || BIG_RES=$?
+                    ( cd "`dirname "$DG"`" && $CI_TIME git repack -A -d ) || BIG_RES=$?
                 done
             fi
             DID_UPDATE=true
             ;;
-        repack-parallel) git repack -A -d --threads=0 || BIG_RES=$?
+        repack-parallel) $CI_TIME git repack -A -d --threads=0 || BIG_RES=$?
             # This assumes parallel compression, so each subrepo can be sequential
             if [ -n "${REFREPODIR_MODE-}" ] ; then
                 for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
-                    ( cd "`dirname "$DG"`" && git repack -A -d --threads=0 ) || BIG_RES=$?
+                    ( cd "`dirname "$DG"`" && $CI_TIME git repack -A -d --threads=0 ) || BIG_RES=$?
                 done
             fi
             DID_UPDATE=true
@@ -831,7 +863,7 @@ EOF
                     if [ "$U" = "$UP" ]; then
                         echo "drop '$R' => '$U' in '$D'" >&2
                         ( [ -z "$D" ] || { cd "$D" || exit; }
-                          git remote remove "$R"
+                          $CI_TIME git remote remove "$R"
                         )
                     else
                         echo "retain '$R' => '$U' in '$D'" >&2
