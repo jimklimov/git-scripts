@@ -176,6 +176,36 @@ is_repo_not_excluded() {
     return 0
 }
 
+# We have a number of lookups that per original logic anyhow listed
+# all repos and then filter the data. In loops like recursive addition
+# we tend to re-request this info - so better not hit the disk if we
+# can. This array is populated from routine below (called e.g. from
+# do_list_repoids() routine) and by registration of new repo URLs.
+declare -a KNOWN_REPOIDS
+cache_list_repoids() {
+    if [ "${#KNOWN_REPOIDS[@]}" -eq 0 ]; then
+        if [ -n "$CI_TIME" ]; then
+            echo "[D] `date`: Caching repoid's and locations for all known repo URL(s)" >&2
+        fi
+        IFSOLD="$IFS"
+        IFS="\n"
+        # Store tab-separated (multi-token) strings: "REPOID URL URL_LOWERCASED SUBDIRNAME"
+        # For items in main REFREPODIR_BASE the SUBDIRNAME is empty, trailing tab optional
+        KNOWN_REPOIDS=( $(IFS="$IFSOLD"; ($CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; \
+          if [ -n "${REFREPODIR_MODE-}" ] ; then \
+            for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do \
+                ( D="`dirname "$DG"`" && cd "$D" && { $CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; } | sed 's,$,\t'"`basename "$D"`," ) ; \
+            done; \
+          fi; \
+        ) | sed -e '/(fetch)/!d' -e 's,^\([^ \t]*\)[ \t]*\([^ ]*\)[ \t]*(fetch),\1\t\2\t\L\2,' ) )
+        # TODO: Make an efficient fix for non-GNU sed (\L\2 for lowercasing \2 is an extension)
+        IFS="$IFSOLD"
+        if [ -n "$CI_TIME" ]; then
+            echo "[D] `date`: Cached repoid's and locations for all known repo URL(s)" >&2
+        fi
+    fi
+}
+
 # Track unique repos we have registered now
 declare -A REGISTERED_NOW
 declare -A REGISTERED_EARLIER
@@ -215,7 +245,9 @@ do_register_repo() {
     $CI_TIME git remote add "$REPOID" "$REPO" \
     && $CI_TIME git remote set-url --push "$REPOID" no_push \
     && echo "[I] `date`: OK: Registered repo '$REPOID' => '$REPO' in `pwd`" \
+    && KNOWN_REPOIDS+=( "$(printf '%s\t%s\t%s\t%s' "$REPOID" "$REPO" "`lc "$REPO"`" "$REFREPODIR_REPO")" ) \
     && REGISTERED_NOW["$REPO"]=1
+
 #?#    && REGISTERED_NOW["$REPOID"]="$REPO"
 }
 
@@ -553,24 +585,16 @@ do_list_repoids() {
     if [ -n "$CI_TIME" ]; then
         echo "[D] `date`: Listing repoid's and locations for repo URL(s): $*" >&2
     fi
-    ( $CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2
-      if [ -n "${REFREPODIR_MODE-}" ] ; then
-        for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
-            ( D="`dirname "$DG"`" && cd "$D" && { $CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; } | sed 's,$, '"`basename "$D"`," )
-        done
-      fi
-    ) | \
-    ( if [ $# = 0 ]; then cat ; else
+    cache_list_repoids
+    for LINE in "${KNOWN_REPOIDS[@]}" ; do echo "$LINE" ; done | \
+    if [ $# = 0 ]; then cat ; else
         # Maybe `echo "$@" | tr ' ' '|' is even better?
         # This could however fall victim to whitespaces in URLs,
         # double-whitespaces, etc. :\
         RE="`printf '%s' "$1"; shift; while [ $# -gt 0 ]; do printf '%s' "|${1}"; shift; done`"
         grep -E "$RE"
-      fi
-    ) | \
-    while read R U M D ; do
-        [ "$M" = '(fetch)' ] || continue
-        U_LC="`lc "$U"`" || continue
+    fi | \
+    while IFS="`printf '\t'`" read R U U_LC D ; do
         is_repo_not_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
 
         if [ $# = 0 ]; then
