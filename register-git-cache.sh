@@ -478,7 +478,12 @@ do_register_repos_recursive() {
         done
     fi
 
-    # Then look inside for unique submodule URLs
+    # Above we have selected some Git URLs that whose contents we did
+    # not investigate yet; here we look inside for unique submodule URLs
+    # and recurse this routine into such URLs. Note that if there are
+    # no new URLs referenced by submodules since last iteration, there
+    # should be no recursion for a parameterless run that checks "all".
+    #
     # TODO?: For REFREPODIR_MODE, group repos in same directory to
     # check and dedup their likely-crossing hashes once and for all
     # (currently dropped from do_list_repoids()|awk... lookup above)
