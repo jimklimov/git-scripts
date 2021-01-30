@@ -319,9 +319,7 @@ do_list_subrepos() {
             # pipes are done and "under tip" log above no longer streams
             $FIRSTLOOP && echo "[D] `date`: Searching commits listed above (if any) for unique URLs from .gitmodules (if any)..." >&2
             FIRSTLOOP=false
-            (   # Note the 'test -e': here we assume that a file creation
-                # and population attempt was successful
-                if $CI_TIME_LOOPS; then
+            (   if $CI_TIME_LOOPS; then
                     if [[ -v PREEXISTING_MODDATA["${HASH}:.gitmodules-urls"] ]] ; then
                         echo "[D] ${HASH} was pre-existing" >&2
                     else
@@ -329,6 +327,9 @@ do_list_subrepos() {
                     fi
                 fi
 
+                # Note the 'test -e': here we assume that a file creation
+                # and population attempt was successful as an atomic operation
+                # and even if it is empty, that is a definitive final status
                 if \
                     [[ -v PREEXISTING_MODDATA["${HASH}:.gitmodules-urls"] ]] \
                     || [ -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] \
@@ -339,7 +340,7 @@ do_list_subrepos() {
                         echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`' - results already filed" >&2
                     fi
                 else
-                    # Not existing before, not made recently or being made now by another thread
+                    # Not existing before, not made recently nor being made now by another thread (.tmp)
                     trap 'rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true' 0
                     [ -n "${REFREPODIR_REPO}" ] \
                         && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
