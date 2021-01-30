@@ -276,7 +276,7 @@ do_list_subrepos() {
         fi
 
         do_list_remotes "$@" | while IFS="`printf '\t'`" read HASH GITREF REFREPODIR_REPO ; do
-            echo "===== Checking submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO..." >&2
+            echo "===== Will check submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO..." >&2
             # After pretty reporting, constrain the list to unique items for inspection
             echo "$HASH $REFREPODIR_REPO"
         done | sort | uniq | \
@@ -287,14 +287,21 @@ do_list_subrepos() {
                     trap 'rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true' 0
                     [ -n "${REFREPODIR_REPO}" ] \
                     && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-                    ###echo "======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
-
-                    $CI_TIME git show "${HASH}:.gitmodules" 2>/dev/null | grep -w url \
+                    if [ -n "$CI_TIME" ]; then
+                        echo "[D] `date`: ======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
+                        $CI_TIME git show "${HASH}:.gitmodules"
+                    else
+                        git show "${HASH}:.gitmodules" 2>/dev/null
+                    fi \
                     | sed -e 's,[ \t\r\n]*,,g' -e '/^url=/!d' -e 's,^url=,,' \
                     > "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" \
                     && mv -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls"
                     # If we did not succeed for whatever reason, no final file should appear
                     rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true
+                else
+                    if [ -n "$CI_TIME" ]; then
+                        echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`' - results already filed" >&2
+                    fi
                 fi
                 if [ -s "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] ; then
                     # Do not link to empty files to cat them below
