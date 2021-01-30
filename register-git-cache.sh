@@ -319,23 +319,25 @@ do_list_subrepos() {
             # pipes are done and "under tip" log above no longer streams
             $FIRSTLOOP && echo "[D] `date`: Searching commits listed above (if any) for unique URLs from .gitmodules (if any)..." >&2
             FIRSTLOOP=false
-            (   if $CI_TIME_LOOPS; then
-                    if [[ -v PREEXISTING_MODDATA["${HASH}:.gitmodules-urls"] ]] ; then
-                        echo "[D] ${HASH} was pre-existing" >&2
-                    else
-                        echo "[D] ${HASH} not pre-existing" >&2
-                    fi
+            # Avoid forking thousands of subshells if we can:
+            if [[ -v PREEXISTING_MODDATA["${HASH}:.gitmodules-urls"] ]] ; then
+                # Already existed before
+                $CI_TIME_LOOPS && echo "[D] ${HASH} was pre-existing" >&2
+                if [ -s "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] && [ ! -e "${TEMPDIR_SUBURLS}/${HASH}:.gitmodules-urls" ] ; then
+                    # Do not link to empty files to cat them below
+                    ln "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" "${TEMPDIR_SUBURLS}/"
                 fi
+            else
+            (   $CI_TIME_LOOPS && echo "[D] ${HASH} not pre-existing" >&2
 
                 # Note the 'test -e': here we assume that a file creation
                 # and population attempt was successful as an atomic operation
                 # and even if it is empty, that is a definitive final status
                 if \
-                    [[ -v PREEXISTING_MODDATA["${HASH}:.gitmodules-urls"] ]] \
-                    || [ -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] \
+                       [ -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] \
                     || [ -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" ] \
                 ; then
-                    # Already existed before, or made recently, or is being parsed by another thread now
+                    # Made recently, or is being parsed by another thread now
                     if $CI_TIME_LOOPS; then
                         echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '`pwd`' / '$REFREPODIR_REPO' - results already filed" >&2
                     fi
@@ -363,6 +365,7 @@ do_list_subrepos() {
                 fi
             ) &
             throttle_running_child_count
+            fi
           done
         )
         if [ -n "$CI_TIME" ]; then
