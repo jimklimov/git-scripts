@@ -507,7 +507,7 @@ do_list_repoids() {
         # Maybe `echo "$@" | tr ' ' '|' is even better?
         # This could however fall victim to whitespaces in URLs,
         # double-whitespaces, etc. :\
-        RE="`printf "$1"; shift; while [ $# -gt 0 ]; do printf "|${1}"; shift; done`"
+        RE="`printf '%s' "$1"; shift; while [ $# -gt 0 ]; do printf '%s' "|${1}"; shift; done`"
         grep -E "$RE"
       fi
     ) | \
