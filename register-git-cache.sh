@@ -492,10 +492,10 @@ do_list_repoids() {
       fi
     ) | \
     while read R U M D ; do
-        [ "$M" = '(fetch)' ] && \
-        U_LC="`lc "$U"`" && \
-        { is_repo_not_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
-        } && \
+        [ "$M" = '(fetch)' ] || continue
+        U_LC="`lc "$U"`" || continue
+        is_repo_not_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
+
         if [ $# = 0 ]; then
             printf '%s\t%s\t%s\n' "$R" "$U" "$D"
         else
