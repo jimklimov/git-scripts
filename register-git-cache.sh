@@ -337,7 +337,7 @@ do_list_subrepos() {
                 ; then
                     # Already existed before, or made recently, or is being parsed by another thread now
                     if $CI_TIME_LOOPS; then
-                        echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`' - results already filed" >&2
+                        echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '`pwd`' / '$REFREPODIR_REPO' - results already filed" >&2
                     fi
                 else
                     # Not existing before, not made recently nor being made now by another thread (.tmp)
@@ -345,7 +345,7 @@ do_list_subrepos() {
                     [ -n "${REFREPODIR_REPO}" ] \
                         && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
                     if $CI_TIME_LOOPS ; then
-                        echo "[D] `date`: ======= Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`'..." >&2
+                        echo "[D] `date`: ======= Checking submodules (if any) under tip hash '$HASH' '`pwd`' / '$REFREPODIR_REPO'..." >&2
                         $CI_TIME git show "${HASH}:.gitmodules"
                     else
                         git show "${HASH}:.gitmodules" 2>/dev/null
