@@ -529,7 +529,6 @@ do_fetch_repos() {
             else
                 # Hit a new value in directory column, fetch the list collected
                 # for previous dir if any ('.' here is the starting value of D_)
-                echo "=== (fetcher:default) Preparing filtered list of Git URLs for dir '$D'..." >&2
                 if [ "$D_" != '.' ]; then
                     ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
                       if [ -z "$R_" ]; then
@@ -547,7 +546,9 @@ do_fetch_repos() {
                     # Sentinel entry '. . .' was hit
                     break
                 fi
-                # Initialize next loop
+
+                # Initialize next loop (or the first loop ever)
+                echo "=== (fetcher:default) Preparing filtered list of Git URLs for dir '$D'..." >&2
                 D_="$D"
                 if [ -z "${FETCHED_REPO["$U"]-}" ]; then
                     R_="$R"
