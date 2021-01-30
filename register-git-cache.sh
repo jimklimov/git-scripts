@@ -303,7 +303,7 @@ do_list_subrepos() {
                         echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`' - results already filed" >&2
                     fi
                 fi
-                if [ -s "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] ; then
+                if [ -s "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] && [ ! -e "${TEMPDIR_SUBURLS}/${HASH}:.gitmodules-urls" ] ; then
                     # Do not link to empty files to cat them below
                     ln "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" "${TEMPDIR_SUBURLS}/"
                 fi
