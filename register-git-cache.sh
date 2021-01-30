@@ -418,8 +418,8 @@ do_register_repos_recursive() {
     # Then look inside for unique submodule URLs
     for SUBREPO in `do_list_subrepos "${REPO_LIST[@]}"`; do
         # Avoid recursing to speed up - lots of operations there we know we would do in vain
-        if [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] ; then
-            $QUIET_SKIP || echo "SKIP: '$REPO' was already inspected recursively during this run and got requested again" >&2
+        if [ "${REGISTERED_RECURSIVELY_NOW["$SUBREPO"]}" = 1 ] ; then
+            $QUIET_SKIP || echo "SKIP: '$SUBREPO' was already inspected recursively during this run and got requested again" >&2
             continue
         fi
         echo "[I] `date`: ===== Recursively register '$SUBREPO'..." >&2
