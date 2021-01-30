@@ -190,7 +190,7 @@ do_register_repo() {
         && { mkdir -p "${REFREPODIR_REPO}" && pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null && trap 'popd >/dev/null ; trap - RETURN' RETURN || exit $? ; }
 
     [ -e .git ] || [ -s HEAD ] || \
-        ( echo "=== Initializing bare repository for git references at `pwd` ..." ; \
+        ( echo "[I] `date`: === Initializing bare repository for git references at `pwd` ..." ; \
           $CI_TIME git init --bare && $CI_TIME git config gc.auto 0 ) || exit $?
 
     $CI_TIME git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered in `pwd`" && return 0
@@ -199,7 +199,7 @@ do_register_repo() {
     local REPOID="repo-`date -u +%s`"
     $CI_TIME git remote add "$REPOID" "$REPO" \
     && $CI_TIME git remote set-url --push "$REPOID" no_push \
-    && echo "OK: Registered repo '$REPOID' => '$REPO' in `pwd`" \
+    && echo "[I] `date`: OK: Registered repo '$REPOID' => '$REPO' in `pwd`" \
     && REGISTERED_NOW["$REPO"]=1
 #?#    && REGISTERED_NOW["$REPOID"]="$REPO"
 }
@@ -221,14 +221,15 @@ do_list_remotes() {
       # processes which happened sometimes in the original implementation
 
       for REPO in "$@" ; do
-        echo "===== Listing remotes of '$REPO'..." >&2
+        echo "[I] `date`: ===== Listing remotes of '$REPO'..." >&2
         is_repo_not_excluded "$REPO" || continue # not a fatal error, just a skip (reported there)
         (
             local REFREPODIR_REPO=''
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            { $CI_TIME git ls-remote "$REPO" || echo "FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}' > "`mktemp --tmpdir="$TEMPDIR_REMOTES" remote-refs.XXXXXXXXXXXX`"
+            { $CI_TIME git ls-remote "$REPO" || echo "[I] `date`: FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } | awk -v REPODIR="${REFREPODIR_REPO}" '{print $1"\t"$2"\t"REPODIR}' > "`mktemp --tmpdir="$TEMPDIR_REMOTES" remote-refs.XXXXXXXXXXXX`"
             # Note: the trailing column is empty for discoveries/runs without REFREPODIR
+            # And we ignore here faults like absent remotes... or invalid Git dirs...
         ) &
         throttle_running_child_count
       done
@@ -255,6 +256,9 @@ do_list_subrepos() {
             exit 1
         fi
 
+        if [ -n "$CI_TIME" ]; then
+            echo "[D] `date`: Discovering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
+        fi
         do_list_remotes "$@" | while IFS="`printf '\t'`" read HASH GITREF REFREPODIR_REPO ; do
             echo "===== Checking submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO..." >&2
             # After pretty reporting, constrain the list to unique items for inspection
@@ -283,12 +287,24 @@ do_list_subrepos() {
             ) &
             throttle_running_child_count
         done
+        if [ -n "$CI_TIME" ]; then
+            echo "[D] `date`: Waiting for subprocesses for discovery of submodules (if any) referenced from any tip commit of repo(s): $*" >&2
+        fi
         wait
-        sync
+        $CI_TIME sync
         if [ -n "`ls -1 "${TEMPDIR_SUBURLS}/"`" ]; then
             cat "${TEMPDIR_SUBURLS}/"*:.gitmodules-urls
+            if [ -n "$CI_TIME" ] || $DEBUG; then
+                cat "${TEMPDIR_SUBURLS}/"*:.gitmodules-urls >&2
+            fi
+        fi
+        if [ -n "$CI_TIME" ]; then
+            echo "[D] `date`: Completed raw discovery of submodules (if any) referenced from any tip commit of repo(s): $*" >&2
         fi
     ) | sort | uniq
+    if [ -n "$CI_TIME" ]; then
+        echo "[D] `date`: Finished discovering and filtering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
+    fi
     # ...in the end, return all unique Git URLs registered as git submodules
 }
 
@@ -343,7 +359,7 @@ do_register_repos_recursive() {
 
     # First register the nearest-level repos
     for REPO in "${TOPREPO_LIST[@]}" ; do
-        echo "=== Register '$REPO' or see if it is already here..."
+        echo "[I] `date`: === Register '$REPO' or see if it is already here..."
         # Repos disliked by exclude pattern were filtered away above, as
         # well as repos already visited in other recursion codepaths.
         # Other repos that existed earlier we want to dig into, except for
@@ -363,10 +379,10 @@ do_register_repos_recursive() {
         esac
 
         if [ "$DO_FETCH" = false ] && [ "${REGISTERED_NOW["$REPO"]}" != 1 ] ; then
-            echo "=== Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..."
+            echo "[I] `date`: === Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..."
         else
             # We need the (recent) contents to look into .gitmodules files later
-            echo "=== Fetch '$REPO' contents for recursion analysis..."
+            echo "[I] `date`: === Fetch '$REPO' contents for recursion analysis..."
             do_fetch_repos "$REPO" || RES=$?
         fi
     done
@@ -378,7 +394,7 @@ do_register_repos_recursive() {
             $QUIET_SKIP || echo "SKIP: '$REPO' was already inspected recursively during this run and got requested again" >&2
             continue
         fi
-        echo "===== Recursively register '$SUBREPO'..."
+        echo "[I] `date`: ===== Recursively register '$SUBREPO'..."
         do_register_repos_recursive "$RECURSE_MODE" "$SUBREPO" || RES=$?
     done
 
@@ -401,7 +417,7 @@ do_unregister_repo() {
 
     RES=0
     for REPO_ID in $REPO_IDS ; do
-        echo "=== Unregistering repository ID '$REPO_ID' from `pwd`..."
+        echo "[I] `date`: === Unregistering repository ID '$REPO_ID' from `pwd`..."
         $CI_TIME git remote remove "$REPO_ID" || RES=$?
     done
     return $RES
@@ -463,18 +479,18 @@ do_fetch_repos_verbose_seq() (
     RES=0
     while read R U D; do
         [ -n "$U" ] || U="$R"
-        echo "=== (fetcher:verbose:seq) $U ($R):"
+        echo "=== (fetcher:verbose:seq) $U ($R):" >&2
         is_repo_not_excluded "$U" || continue # not a fatal error, just a skip (reported there)
 
         (   local REFREPODIR_REPO="$D"
             { [ -n "${REFREPODIR_REPO}" ] || \
               { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            echo "=== (fetcher:verbose:seq) Starting $U ($R) in `pwd` :"
+            echo "[I] `date`: === (fetcher:verbose:seq) Starting $U ($R) in `pwd` :" >&2
             $CI_TIME git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
                 && $CI_TIME git fetch -f --tags --progress "$R" \
-                && echo "===== (fetcher:verbose:seq) Completed $U ($R) in `pwd`"
-        ) || { RES=$? ; echo "(fetcher:verbose:seq) FAILED TO FETCH : $U ($R)" >&2 ; }
+                && echo "[I] `date`: ===== (fetcher:verbose:seq) Completed $U ($R) in `pwd`" .&2
+        ) || { RES=$? ; echo "[I] `date`: (fetcher:verbose:seq) FAILED TO FETCH : $U ($R)" >&2 ; }
         echo ""
     done
     exit $RES
@@ -494,11 +510,11 @@ do_fetch_repos_verbose_par() (
             { [ -n "${REFREPODIR_REPO}" ] || \
               { [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$U"`" ; } ; } \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
-            echo "=== (fetcher:verbose:par) Starting $U ($R) in `pwd` in background..."
+            echo "[I] `date`: === (fetcher:verbose:par) Starting $U ($R) in `pwd` in background..." >&2
             $CI_TIME git fetch -f --progress "$R" '+refs/heads/*:refs/remotes/'"$R"'/*' \
                 && $CI_TIME git fetch -f --tags --progress "$R" \
-                || { RES=$? ; echo "(fetcher:verbose:par) FAILED TO FETCH : $U ($R) in `pwd` in background" >&2 ; exit $RES; }
-            echo "===== (fetcher:verbose:par) Completed $U ($R) in `pwd` in background"
+                || { RES=$? ; echo "[I] `date`: (fetcher:verbose:par) FAILED TO FETCH : $U ($R) in `pwd` in background" >&2 ; exit $RES; }
+            echo "[I] `date`: ===== (fetcher:verbose:par) Completed $U ($R) in `pwd` in background" >&2
         ) &
         throttle_running_child_count
         echo ""
@@ -533,7 +549,7 @@ do_fetch_repos() {
     # TODO: Can we pass a refspec to fetch all branches here?
     # Or should we follow up with another fetch (like verbose)?
     if [ -z "${REFREPODIR_MODE-}" ] ; then
-        echo "=== (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
+        echo "[I] `date`: === (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
         $CI_TIME git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
     else
         local R U D
@@ -568,12 +584,12 @@ do_fetch_repos() {
                     ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
                       if [ -z "$R_" ]; then
                           echo "===== (fetcher:default) SKIP: Git URL list is empty after selection - not re-fetching into '$D_'" >&2
-                          exit 0
+                          exit 0 # just exiting a subprocess here
                       fi
-                      echo "===== (fetcher:default:par) Processing refrepo dir '$D_': $R_" >&2
+                      echo "[I] `date`: ===== (fetcher:default:par) Processing refrepo dir '$D_': $R_" >&2
                       cd "$D_" || exit
                       $CI_TIME git fetch -f -j8 --multiple --tags $R_ || \
-                      { echo "======= (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
+                      { echo "[I] `date`: ======= (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
                         $CI_TIME git fetch -f --multiple --tags $R_ ; }
                     ) || RESw=$?
                 fi
@@ -583,7 +599,7 @@ do_fetch_repos() {
                 fi
 
                 # Initialize next loop (or the first loop ever)
-                echo "=== (fetcher:default) Preparing filtered list of Git URLs for dir '$D'..." >&2
+                echo "[I] `date`: === (fetcher:default) Preparing filtered list of Git URLs for dir '$D'..." >&2
                 D_="$D"
                 if [ -z "${FETCHED_REPO["$U"]-}" ]; then
                     R_="$R"
@@ -810,16 +826,16 @@ EOF
                 for DG in `ls -1d "${REFREPODIR_BASE-}"/*/.git "${REFREPODIR_BASE-}"/*/objects 2>/dev/null` ; do
                     ( D="`dirname "$DG"`"
                       cd "$D" || exit
-                      echo "=== (fetcher:default:all) Processing refrepo dir '$D':" >&2
+                      echo "[I] `date`: === (fetcher:default:all) Processing refrepo dir '$D':" >&2
                         $CI_TIME git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-                        { echo "===== (fetcher:default:all) Retry sequentially refrepo dir '$D_':" >&2 ;
+                        { echo "[I] `date`: ===== (fetcher:default:all) Retry sequentially refrepo dir '$D_':" >&2 ;
                           $CI_TIME git fetch -f --all --prune --tags ; }
                     )
                 done
             fi
-            echo "=== (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
+            echo "[I] `date`: === (fetcher:default:all) Processing refrepo dir '`pwd`':" >&2
             $CI_TIME git fetch -f --all -j8 --prune --tags 2>/dev/null || \
-            { echo "===== (fetcher:default:all) Retry sequentially refrepo dir '`pwd`':" >&2 ;
+            { echo "[I] `date`: ===== (fetcher:default:all) Retry sequentially refrepo dir '`pwd`':" >&2 ;
               $CI_TIME git fetch -f --all --prune --tags ; }
             DID_UPDATE=true
             ;;
@@ -864,12 +880,12 @@ EOF
             (   RP=''; UP='';
                 while read R U D; do
                     if [ "$U" = "$UP" ]; then
-                        echo "drop '$R' => '$U' in '$D'" >&2
+                        echo "[I] `date`: drop '$R' => '$U' in '$D'" >&2
                         ( [ -z "$D" ] || { cd "$D" || exit; }
                           $CI_TIME git remote remove "$R"
                         )
                     else
-                        echo "retain '$R' => '$U' in '$D'" >&2
+                        echo "[I] `date`: retain '$R' => '$U' in '$D'" >&2
                     fi
                     UP="$U"
                 done
@@ -879,10 +895,10 @@ EOF
             ;;
         --dev-test)
             shift
-            echo "Dev-testing a routine: $*" >&2
+            echo "[I] `date`: Dev-testing a routine: $*" >&2
             [ $# -gt 0 ] || exit
             "$@" || BIG_RES=$?
-            echo "Dev-test completed with code $BIG_RES" >&2
+            echo "[I] `date`: Dev-test completed with code $BIG_RES" >&2
             exit $BIG_RES
             ;;
         *)  echo "ERROR: Unrecognized argument: $1" >&2
@@ -897,13 +913,13 @@ if "$DID_UPDATE" && [ -d ./.zfs ] ; then
     || { SNAPDATE="`date -u +%s`" ; }
     SNAPNAME="rgc-auto-${SNAPDATE}_res-${BIG_RES}_actions-${ACTIONS}"
     SNAPNAME="`echo "$SNAPNAME" | tr ' ' '-'`"
-    echo "ZFS: Trying to snapshot `pwd` as '@${SNAPNAME}' ..." >&2
+    echo "[I] `date`: ZFS: Trying to snapshot `pwd` as '@${SNAPNAME}' ..." >&2
     mkdir -p .zfs/snapshot/"$SNAPNAME" \
     || echo "WARNING: Could not 'zfs snapshot'; did you 'zfs allow -ldu $USER snapshot POOL/DATASET/NAME' on the storage server?" >&2
 fi
 
 if [ "${#REGISTERED_NOW[@]}" -gt 0 ]; then
-    echo "During this run, registered the following new REPO_URL(s): ${!REGISTERED_NOW[@]}"
+    echo "[I] `date`: During this run, registered the following new REPO_URL(s): ${!REGISTERED_NOW[@]}"
 fi
 
 exit $BIG_RES
