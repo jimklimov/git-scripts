@@ -328,7 +328,7 @@ do_list_subrepos() {
                     # If we did not succeed for whatever reason, no final file should appear
                     rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true
                 else
-                    if [ -n "$CI_TIME" ]; then
+                    if $CI_TIME_LOOPS; then
                         echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`' - results already filed" >&2
                     fi
                 fi
