@@ -101,7 +101,10 @@ fi
 # of certain URLs (e.g. by automated jobs parsing a history of build setups,
 # including references to SCM server instances that no longer exist).
 EXCEPT_PATTERNS_FILE="${REFREPODIR_BASE}/.except"
-[ -n "${QUIET_SKIP-}" ] || QUIET_SKIP=no
+case "${QUIET_SKIP-}" in
+    [Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]) QUIET_SKIP=true ;;
+    *) QUIET_SKIP=false ;;
+esac
 
 # Throttling inspired by https://stackoverflow.com/a/8735146/4715872
 # TODO? Detect from CPU count
@@ -156,7 +159,7 @@ is_repo_not_excluded() {
         case "$REPO" in
             "#"*) continue ;;
             $PAT)
-                [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2
+                $QUIET_SKIP || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2
                 KNOWN_EXCLUDED["$REPO"]=1
                 return 1
                 ;;
@@ -177,7 +180,7 @@ do_register_repo() {
     REPO="$1"
 
     [ "${REGISTERED_NOW["$REPO"]}" = 1 ] \
-        && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: Repo '$REPO' already registered during this run" ; } \
+        && { $QUIET_SKIP || echo "SKIP: Repo '$REPO' already registered during this run" ; } \
         && return 42
 
     is_repo_not_excluded "$REPO" || return 0 # being excluded is not a fatal error, just a skip (reported there)
@@ -323,7 +326,7 @@ do_register_repos_recursive() {
         if [ "$DO_FETCH" = false ] ; then
             echo "Caller asked to not re-fetch Git URLs already registered - probably they were recently refreshed in a separate call" >&2
         fi
-        TOPREPO_LIST+=( `QUIET_SKIP=yes do_list_repoids | awk '{print $2}' | sort | uniq` )
+        TOPREPO_LIST+=( `QUIET_SKIP=true do_list_repoids | awk '{print $2}' | sort | uniq` )
         echo "Discovered the following currently-known Git URLs for further recursion: ${TOPREPO_LIST[*]}" >&2
         if [ "${#TOPREPO_LIST[@]}" = 0 ]; then
             echo "FAILED: No Git URLs found under `pwd`, aborting the recursive inspection" >&2
@@ -332,7 +335,7 @@ do_register_repos_recursive() {
     else
         for REPO in "$@" ; do
             [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] \
-            && { [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 ; } \
+            && { $QUIET_SKIP || echo "SKIP: '$REPO' was already inspected recursively during this run" >&2 ; } \
             || { is_repo_not_excluded "$REPO" && TOPREPO_LIST+=( "$REPO" ) ; }
             # Note: is_repo_not_excluded() returns 0 to go on processing the repo
         done
@@ -372,7 +375,7 @@ do_register_repos_recursive() {
     for SUBREPO in `do_list_subrepos "${REPO_LIST[@]}"`; do
         # Avoid recursing to speed up - lots of operations there we know we would do in vain
         if [ "${REGISTERED_RECURSIVELY_NOW["$REPO"]}" = 1 ] ; then
-            [ "${QUIET_SKIP-}" = yes ] || echo "SKIP: '$REPO' was already inspected recursively during this run and got requested again" >&2
+            $QUIET_SKIP || echo "SKIP: '$REPO' was already inspected recursively during this run and got requested again" >&2
             continue
         fi
         echo "===== Recursively register '$SUBREPO'..."
@@ -753,7 +756,7 @@ EOF
             if [ "$#" = 0 ]; then
                 do_list_repoids ; exit $?
             else
-                QUIET_SKIP=yes do_list_repoids "$@" ; exit $?
+                QUIET_SKIP=true do_list_repoids "$@" ; exit $?
             fi
             ;;
         list-recursive|ls-recursive|lsr)
@@ -761,7 +764,7 @@ EOF
             if [ "$#" = 0 ]; then
                 do_list_subrepos ; exit $?
             else
-                QUIET_SKIP=yes do_list_subrepos "$@" ; exit $?
+                QUIET_SKIP=true do_list_subrepos "$@" ; exit $?
             fi
             ;;
         git@*|ssh://*|https://*|http://*)
@@ -822,7 +825,7 @@ EOF
             ;;
         fetch|update|pull|up)
             shift
-            QUIET_SKIP=yes do_fetch_repos "$@" || BIG_RES=$?
+            QUIET_SKIP=true do_fetch_repos "$@" || BIG_RES=$?
             shift $#
             DID_UPDATE=true
             ;;
