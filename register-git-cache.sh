@@ -222,7 +222,12 @@ do_register_repo() {
 do_list_remotes() {
     # For each arg, do git-ls-remote - List references in a remote repository
     # (NOT listing of known remote repo IDs - see do_list_repoids() for that)
+    local TS_START=0
+    local TS_END=0
+    local TS_TEXT=''
+
     if [ -n "$CI_TIME" ]; then
+        [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
         echo "[D] `date`: Discovering references from any tip commit of repo(s): $*" >&2
     fi
 
@@ -271,14 +276,20 @@ do_list_remotes() {
       fi
     ) | sort | uniq
     if [ -n "$CI_TIME" ]; then
-        echo "[D] `date`: Finished discovering and filtering references from any tip commit of repo(s): $*" >&2
+        [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" after $(($TS_END - $TS_START)) whole seconds"; }
+        echo "[D] `date`: Finished discovering and filtering references from any tip commit of repo(s)${TS_TEXT}: $*" >&2
     fi
 }
 
 do_list_subrepos() {
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
+        local TS_START=0
+        local TS_END=0
+        local TS_TEXT=''
+
         if [ -n "$CI_TIME" ]; then
+            [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
             echo "[D] `date`: Discovering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
         fi
 
@@ -345,7 +356,8 @@ do_list_subrepos() {
         fi
     ) | sort | uniq
     if [ -n "$CI_TIME" ]; then
-        echo "[D] `date`: Finished discovering and filtering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
+        [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" after $(($TS_END - $TS_START)) whole seconds"; }
+        echo "[D] `date`: Finished discovering and filtering submodules (if any) referenced from any tip commit of repo(s)${TS_TEXT}: $*" >&2
     fi
     # ...in the end, return all unique Git URLs registered as git submodules
 }
@@ -364,6 +376,11 @@ do_register_repos_recursive() {
     local RES=0
     local _RES=0
     local RECURSE_MODE="all"
+    local TS_START=0
+    local TS_END=0
+    local TS_TEXT=''
+
+    [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
 
     # Exit recursion; for call to refresh all already registered URLs pass $1=="all"
     if [ $# = 0 ]; then return 0; fi
@@ -447,7 +464,8 @@ do_register_repos_recursive() {
     done
 
     if [ -n "$CI_TIME" ]; then
-        echo "[D] `date`: Finished ($RES) recursing into possible submodules of repo URL(s): $*" >&2
+        [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" after $(($TS_END - $TS_START)) whole seconds"; }
+        echo "[D] `date`: Finished ($RES) recursing into possible submodules of repo URL(s)${TS_TEXT}: $*" >&2
     fi
 
     return $RES
