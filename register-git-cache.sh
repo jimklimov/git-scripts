@@ -172,6 +172,7 @@ is_repo_not_excluded() {
 
 # Track unique repos we have registered now
 declare -A REGISTERED_NOW
+declare -A REGISTERED_EARLIER
 do_register_repo() {
     # REPO is a substring from `git remote` listing,
     # so technically can be an ID or part of URL (but
@@ -183,6 +184,10 @@ do_register_repo() {
         && { $QUIET_SKIP || echo "SKIP: Repo '$REPO' already registered during this run" ; } \
         && return 42
 
+    [ "${REGISTERED_EARLIER["$REPO"]}" = 1 ] \
+        && { $QUIET_SKIP || echo "SKIP: Repo '$REPO' was registered earlier and already seen during this run" ; } \
+        && return 0
+
     is_repo_not_excluded "$REPO" || return 0 # being excluded is not a fatal error, just a skip (reported there)
 
     local REFREPODIR_REPO
@@ -193,7 +198,11 @@ do_register_repo() {
         ( echo "[I] `date`: === Initializing bare repository for git references at `pwd` ..." ; \
           $CI_TIME git init --bare && $CI_TIME git config gc.auto 0 ) || exit $?
 
-    $CI_TIME git remote -v | grep -i "$REPO" > /dev/null && echo "SKIP: Repo '$REPO' already registered in `pwd`" && return 0
+    $CI_TIME git remote -v | grep -i "$REPO" > /dev/null \
+    && echo "SKIP: Repo '$REPO' already registered in `pwd`" \
+    && REGISTERED_EARLIER["${REPO}"]=1 \
+    && REGISTERED_EARLIER["${REPO} `pwd`"]=1 \
+    && return 0
 
     sleep 1 # ensure unique ID
     local REPOID="repo-`date -u +%s`"
