@@ -134,8 +134,8 @@ time_wrapper() {
     local TS_TEXT=''
     [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
     time "$@" || SUB_RES=$?
-    [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" in $(($TS_END - $TS_START)) whole seconds"; }
-    echo "[D] `date`: Completed command with code ${SUB_RES}${TS_TEXT}: $*" >&2
+    [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" after $(($TS_END - $TS_START)) whole seconds"; }
+    echo "[D] `date`: Completed command with code ${SUB_RES}${TS_TEXT} in dir '`pwd`': $*" >&2
     return $SUB_RES
 }
 
