@@ -310,13 +310,15 @@ do_list_subrepos() {
             echo "$HASH $REFREPODIR_REPO"
         done | sort | uniq | \
         ( echo "[D] `date`: Searching commits listed above (if any) for unique URLs from .gitmodules (if any)..." >&2
-          declare -a PREEXISTING_MODDATA
-          PREEXISTING_MODDATA=( `cd ${TEMPDIR_BASE}/ && ls -1` )
+          declare -A PREEXISTING_MODDATA
+          for F in $(cd ${TEMPDIR_BASE}/ && ls -1) ; do
+            PREEXISTING_MODDATA["$F"]=1
+          done
           while read HASH REFREPODIR_REPO ; do
             (   # Note the 'test -e': here we assume that a file creation
                 # and population attempt was successful
                 if $CI_TIME_LOOPS; then
-                    if [[ ${PREEXISTING_MODDATA[*]} =~ "${HASH}:.gitmodules-urls" ]] ; then
+                    if [[ -v PREEXISTING_MODDATA["${HASH}:.gitmodules-urls"] ]] ; then
                         echo "[D] ${HASH} was pre-existing" >&2
                     else
                         echo "[D] ${HASH} not pre-existing" >&2
@@ -324,7 +326,7 @@ do_list_subrepos() {
                 fi
 
                 if \
-                    [[ ${PREEXISTING_MODDATA[*]} =~ "${HASH}:.gitmodules-urls" ]] \
+                    [[ -v PREEXISTING_MODDATA["${HASH}:.gitmodules-urls"] ]] \
                     || [ -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] \
                     || [ -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" ] \
                 ; then
