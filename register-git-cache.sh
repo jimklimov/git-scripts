@@ -282,17 +282,17 @@ do_list_remotes() {
 }
 
 do_list_subrepos() {
+    local TS_START=0
+    local TS_END=0
+    local TS_TEXT=''
+
+    if [ -n "$CI_TIME" ]; then
+        [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
+        echo "[D] `date`: Discovering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
+    fi
+
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
-        local TS_START=0
-        local TS_END=0
-        local TS_TEXT=''
-
-        if [ -n "$CI_TIME" ]; then
-            [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
-            echo "[D] `date`: Discovering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
-        fi
-
         TEMPDIR_SUBURLS="`mktemp -d --tmpdir="$TEMPDIR_BASE" subrepos.$$.XXXXXXXX`" && [ -n "$TEMPDIR_SUBURLS" ] && [ -d "$TEMPDIR_SUBURLS" ] || TEMPDIR_SUBURLS=""
         if [ -n "$TEMPDIR_SUBURLS" ] ; then
             # Absolutize to be sure
