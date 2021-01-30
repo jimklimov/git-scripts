@@ -310,10 +310,30 @@ do_list_subrepos() {
             echo "$HASH $REFREPODIR_REPO"
         done | sort | uniq | \
         ( echo "[D] `date`: Searching commits listed above (if any) for unique URLs from .gitmodules (if any)..." >&2
+          declare -a PREEXISTING_MODDATA
+          PREEXISTING_MODDATA=( `cd ${TEMPDIR_BASE}/ && ls -1` )
           while read HASH REFREPODIR_REPO ; do
             (   # Note the 'test -e': here we assume that a file creation
                 # and population attempt was successful
-                if [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] && [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" ] ; then
+                if $CI_TIME_LOOPS; then
+                    if [[ ${PREEXISTING_MODDATA[*]} =~ "${HASH}:.gitmodules-urls" ]] ; then
+                        echo "[D] ${HASH} was pre-existing" >&2
+                    else
+                        echo "[D] ${HASH} not pre-existing" >&2
+                    fi
+                fi
+
+                if \
+                    [[ ${PREEXISTING_MODDATA[*]} =~ "${HASH}:.gitmodules-urls" ]] \
+                    || [ -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] \
+                    || [ -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" ] \
+                ; then
+                    # Already existed before, or made recently, or is being parsed by another thread now
+                    if $CI_TIME_LOOPS; then
+                        echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`' - results already filed" >&2
+                    fi
+                else
+                    # Not existing before, not made recently or being made now by another thread
                     trap 'rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true' 0
                     [ -n "${REFREPODIR_REPO}" ] \
                         && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
@@ -328,11 +348,8 @@ do_list_subrepos() {
                         && mv -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls"
                     # If we did not succeed for whatever reason, no final file should appear
                     rm -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" || true
-                else
-                    if $CI_TIME_LOOPS; then
-                        echo "[D] `date`: ======= NOT Checking submodules (if any) under tip hash '$HASH' '$REFREPODIR_REPO' '`pwd`' - results already filed" >&2
-                    fi
                 fi
+
                 if [ -s "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] && [ ! -e "${TEMPDIR_SUBURLS}/${HASH}:.gitmodules-urls" ] ; then
                     # Do not link to empty files to cat them below
                     ln "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" "${TEMPDIR_SUBURLS}/"
