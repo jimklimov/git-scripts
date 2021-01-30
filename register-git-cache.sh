@@ -309,7 +309,8 @@ do_list_subrepos() {
             # After pretty reporting, constrain the list to unique items for inspection
             echo "$HASH $REFREPODIR_REPO"
         done | sort | uniq | \
-        while read HASH REFREPODIR_REPO ; do
+        ( echo "[D] `date`: Searching commits listed above (if any) for unique URLs from .gitmodules (if any)..." >&2
+          while read HASH REFREPODIR_REPO ; do
             (   # Note the 'test -e': here we assume that a file creation
                 # and population attempt was successful
                 if [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls" ] && [ ! -e "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" ] ; then
@@ -338,7 +339,8 @@ do_list_subrepos() {
                 fi
             ) &
             throttle_running_child_count
-        done
+          done
+        )
         if [ -n "$CI_TIME" ]; then
             echo "[D] `date`: Waiting for subprocesses for discovery of submodules (if any) referenced from any tip commit of repo(s): $*" >&2
         fi
