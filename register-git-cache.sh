@@ -366,10 +366,13 @@ do_register_repos_recursive() {
         echo "Caller specified a RECURSE_MODE as the only argument, so list all known Git URLs and refresh submodules that they might reference" >&2
         if [ "$DO_FETCH" = false ] ; then
             echo "Caller asked to not re-fetch Git URLs already registered - probably they were recently refreshed in a separate call" >&2
+        else
+            echo "[I] `date`: === Fetch all known repositories' contents for recursion analysis..." >&2
+            do_fetch_repos || RES=$?
         fi
-        TOPREPO_LIST+=( `QUIET_SKIP=true do_list_repoids | awk '{print $2}' | sort | uniq` )
-        echo "Discovered the following currently-known Git URLs for further recursion: ${TOPREPO_LIST[*]}" >&2
-        if [ "${#TOPREPO_LIST[@]}" = 0 ]; then
+        REPO_LIST+=( `QUIET_SKIP=true do_list_repoids | awk '{print $2}' | sort | uniq` )
+        echo "Discovered the following currently-known Git URLs for further recursion: ${REPO_LIST[*]}" >&2
+        if [ "${#REPO_LIST[@]}" = 0 ]; then
             echo "FAILED: No Git URLs found under `pwd`, aborting the recursive inspection" >&2
             return 1
         fi
@@ -383,37 +386,37 @@ do_register_repos_recursive() {
             || { is_repo_not_excluded "$REPO" && TOPREPO_LIST+=( "$REPO" ) ; }
             # Note: is_repo_not_excluded() returns 0 to go on processing the repo
         done
+
+        # First register the nearest-level repos
+        for REPO in "${TOPREPO_LIST[@]}" ; do
+            # Repos disliked by exclude pattern were filtered away above, as
+            # well as repos already visited in other recursion codepaths.
+            # Other repos that existed earlier we want to dig into, except for
+            # code 42 (means skip because already registered during this run,
+            # as a double failsafe precaution - e.g. listed twice in CLI args):
+            echo "[I] `date`: === Register '$REPO' or see if it is already here..." >&2
+            do_register_repo "$REPO" || { _RES=$?; [ "${_RES}" = 42 ] || RES="${_RES}"; continue ; }
+            REGISTERED_RECURSIVELY_NOW["$REPO"]=1
+
+            case "$RECURSE_MODE" in
+                new) # we would only recurse into repo URLs previously not known
+                    if [ "${REGISTERED_NOW["$REPO"]}" = 1 ] ; then
+                        REPO_LIST+=( "$REPO" )
+                    fi
+                    ;;
+                all) # will recurse into all known repos to check for new branches etc.
+                    REPO_LIST+=( "$REPO" ) ;;
+            esac
+
+            if [ "$DO_FETCH" = false ] && [ "${REGISTERED_NOW["$REPO"]}" != 1 ] ; then
+                echo "[I] `date`: === Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..." >&2
+            else
+                # We need the (recent) contents to look into .gitmodules files later
+                echo "[I] `date`: === Fetch '$REPO' contents for recursion analysis..." >&2
+                do_fetch_repos "$REPO" || RES=$?
+            fi
+        done
     fi
-
-    # First register the nearest-level repos
-    for REPO in "${TOPREPO_LIST[@]}" ; do
-        # Repos disliked by exclude pattern were filtered away above, as
-        # well as repos already visited in other recursion codepaths.
-        # Other repos that existed earlier we want to dig into, except for
-        # code 42 (means skip because already registered during this run,
-        # as a double failsafe precaution - e.g. listed twice in CLI args):
-        echo "[I] `date`: === Register '$REPO' or see if it is already here..." >&2
-        do_register_repo "$REPO" || { _RES=$?; [ "${_RES}" = 42 ] || RES="${_RES}"; continue ; }
-        REGISTERED_RECURSIVELY_NOW["$REPO"]=1
-
-        case "$RECURSE_MODE" in
-            new) # we would only recurse into repo URLs previously not known
-                if [ "${REGISTERED_NOW["$REPO"]}" = 1 ] ; then
-                    REPO_LIST+=( "$REPO" )
-                fi
-                ;;
-            all) # will recurse into all known repos to check for new branches etc.
-                REPO_LIST+=( "$REPO" ) ;;
-        esac
-
-        if [ "$DO_FETCH" = false ] && [ "${REGISTERED_NOW["$REPO"]}" != 1 ] ; then
-            echo "[I] `date`: === Not fetching '$REPO' contents (it existed and caller says it was recently refreshed)..." >&2
-        else
-            # We need the (recent) contents to look into .gitmodules files later
-            echo "[I] `date`: === Fetch '$REPO' contents for recursion analysis..." >&2
-            do_fetch_repos "$REPO" || RES=$?
-        fi
-    done
 
     # Then look inside for unique submodule URLs
     for SUBREPO in `do_list_subrepos "${REPO_LIST[@]}"`; do
