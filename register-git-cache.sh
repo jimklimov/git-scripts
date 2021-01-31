@@ -100,7 +100,7 @@ case "${DO_FETCH-}" in
     false|-vs|-vp|-v|-p) ;; # Keep the value we might pass as argument or use in conditionals
     true)
         if [ -n "${REFREPODIR_MODE-}" ]; then
-            DO_FETCH="-vp" # TODO: handle '-p' for default parallelized safely across different dirs
+            DO_FETCH="-p" # We handle '-p' for default parallelized fetching safely across different dirs
         else
             DO_FETCH="-vs"
         fi
@@ -765,10 +765,9 @@ do_fetch_repos() {
         echo "[I] `date`: === (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
         $CI_TIME git fetch -f $FETCHER --multiple --tags `do_list_repoids "$@" | awk '{print $1}'` || RES=$?
     else
-        # TODO: Add a '-p' for non-verbose parallel mode that can
+        # We handle a '-p' for non-verbose parallel mode that can
         # stretch across subdirs to run more git's (parallelized
         # internally to natively cleanly handle single dir contents)
-        # For now we enjoy just the internal parallelization...
         local R U D
         local D_='.'
         local R_=''
@@ -797,7 +796,7 @@ do_fetch_repos() {
                 # Hit a new value in directory column, fetch the list collected
                 # for previous dir if any ('.' here is the starting value of D_)
                 if [ "$D_" != '.' ]; then
-                    ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
+                    sub_fetcher() ( [ -n "$D_" ] || D_="${REFREPODIR_BASE}"
                       if [ -z "$R_" ]; then
                           echo "===== (fetcher:default) SKIP: Git URL list is empty after selection - not re-fetching into '$D_'" >&2
                           exit 0 # just exiting a subprocess here
@@ -808,7 +807,14 @@ do_fetch_repos() {
                       $CI_TIME git fetch -f $FETCHER --multiple --tags $R_ || \
                       { echo "[I] `date`: ======= (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
                         $CI_TIME git fetch -f --multiple --tags $R_ ; }
-                    ) || RESw=$?
+                    )
+                    if [ -n "$FETCHER" ]; then
+                        # Assume parallel setting
+                        sub_fetcher &
+                        throttle_running_child_count
+                    else
+                        sub_fetcher || RESw=$?
+                    fi
                 fi
                 if [ "$D" = '.' ]; then
                     # Sentinel entry '. . .' was hit
@@ -827,6 +833,12 @@ do_fetch_repos() {
                 fi
             fi
           done
+
+          if [ -n "$FETCHER" ]; then
+              # Assume parallel setting
+              wait || RESW=$?
+          fi
+
           exit $RESw
         ) || RES=$?
     fi
