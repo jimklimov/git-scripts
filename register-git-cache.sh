@@ -332,7 +332,7 @@ do_list_remotes() {
             [ -n "${REFREPODIR_MODE-}" ] && REFREPODIR_REPO="`get_subrepo_dir "$REPO"`" \
                 && { pushd "${REFREPODIR_BASE}/${REFREPODIR_REPO}" >/dev/null || exit $? ; }
             { $CI_TIME git ls-remote "$REPO" || echo "[I] `date`: FAILED to 'git ls-remote $REPO' in '`pwd`'">&2 ; } \
-                | awk -v REPODIR="${REFREPODIR_REPO}" -v REPO="${REPO}" '{print $1"\t"$2"\t"REPODIR"\t"REPO}' \
+                | awk -v REPODIR="${REFREPODIR_REPO}" -v REPOURL="${REPO}" '{print $1"\t"$2"\t"REPOURL"\t"REPODIR}' \
                 > "`mktemp --tmpdir="$TEMPDIR_REMOTES" remote-refs.XXXXXXXXXXXX`"
             # Note: the trailing column is empty for discoveries/runs without REFREPODIR
             # And we ignore here faults like absent remotes... or invalid Git dirs...
@@ -382,8 +382,8 @@ do_list_subrepos() {
             exit 1
         fi
 
-        do_list_remotes "$@" | while IFS="${TABCHAR}" read HASH GITREF REFREPODIR_REPO REPOURL ; do
-            echo "===== Will check submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO $REPOURL..." >&2
+        do_list_remotes "$@" | while IFS="${TABCHAR}" read HASH GITREF REPOURL REFREPODIR_REPO ; do
+            echo "===== Will check submodules (if any) under tip hash '$HASH' => '$GITREF' in '$REFREPODIR_REPO' for '$REPOURL'..." >&2
             # After pretty reporting, constrain the list to unique items for inspection
             echo "$HASH $REFREPODIR_REPO"
         done | sort | uniq | \
