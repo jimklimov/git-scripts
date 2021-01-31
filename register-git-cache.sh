@@ -188,7 +188,7 @@ cache_list_repoids() {
             echo "[D] `date`: Caching repoid's and locations for all known repo URL(s)" >&2
         fi
         IFSOLD="$IFS"
-        IFS="\n"
+        IFS="`printf '\n'`"
         # Store tab-separated (multi-token) strings: "REPOID URL URL_LOWERCASED SUBDIRNAME"
         # For items in main REFREPODIR_BASE the SUBDIRNAME is empty, trailing tab optional
         KNOWN_REPOIDS=( $(IFS="$IFSOLD"; ($CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; \
@@ -586,7 +586,9 @@ do_list_repoids() {
         echo "[D] `date`: Listing repoid's and locations for repo URL(s): $*" >&2
     fi
     cache_list_repoids
-    for LINE in "${KNOWN_REPOIDS[@]}" ; do echo "$LINE" ; done | \
+    # Print entries line by line:
+    ### for LINE in "${KNOWN_REPOIDS[@]}" ; do echo "$LINE" ; done | \
+    IFS="`printf '\n'`" eval 'echo "${KNOWN_REPOIDS[*]}"' | \
     if [ $# = 0 ]; then cat ; else
         # Maybe `echo "$@" | tr ' ' '|' is even better?
         # This could however fall victim to whitespaces in URLs,
