@@ -711,6 +711,13 @@ do_fetch_repos_verbose_par() (
 )
 
 do_fetch_repos() {
+    local TS_START=0
+    local TS_END=0
+    local TS_TEXT=''
+    local RES=0
+
+    [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
+
     FETCHER="do_fetch_repos_verbose_seq"
     case "$1" in
         -vp) FETCHER="do_fetch_repos_verbose_par"
@@ -727,8 +734,12 @@ do_fetch_repos() {
                     # Reverse sort, to prioritize presumed-smaller-scope (faster) repos in subdirs
                     do_list_repoids "$@" | sort -k3r
                 fi
-            fi | $FETCHER
-            return $?
+            fi | $FETCHER || RES=$?
+            if [ -n "$CI_TIME" ]; then
+                [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" after $(($TS_END - $TS_START)) whole seconds"; }
+                echo "[D] `date`: Finished ($RES) fetching of repo URL(s)${TS_TEXT}: $*" >&2
+            fi
+            return $RES
             ;;
         false)
             echo "SKIP: Fetching disabled by argument or DO_FETCH envvar" >&2
@@ -744,7 +755,7 @@ do_fetch_repos() {
     # Or should we follow up with another fetch (like verbose)?
     if [ -z "${REFREPODIR_MODE-}" ] ; then
         echo "[I] `date`: === (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
-        $CI_TIME git fetch -f $FETCHER --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
+        $CI_TIME git fetch -f $FETCHER --multiple --tags `do_list_repoids "$@" | awk '{print $1}'` || RES=$?
     else
         # TODO: Add a '-p' for non-verbose parallel mode that can
         # stretch across subdirs to run more git's (parallelized
@@ -753,7 +764,6 @@ do_fetch_repos() {
         local R U D
         local D_='.'
         local R_=''
-        local RES=0
 
         # Reverse sort, to prioritize presumed-smaller-scope (faster) repos in subdirs
         ( do_list_repoids "$@" | sort -k3r | uniq ; echo '. . .' ) | \
@@ -811,8 +821,13 @@ do_fetch_repos() {
           done
           exit $RESw
         ) || RES=$?
-        return $RES
     fi
+
+    if [ -n "$CI_TIME" ]; then
+        [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" after $(($TS_END - $TS_START)) whole seconds"; }
+        echo "[D] `date`: Finished ($RES) fetching of repo URL(s)${TS_TEXT}: $*" >&2
+    fi
+    return $RES
 }
 
 normalize_git_url() {
