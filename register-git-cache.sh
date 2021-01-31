@@ -513,6 +513,7 @@ do_register_repos_recursive() {
             echo "[I] `date`: === Fetch all known repositories' contents for recursion analysis..." >&2
             do_fetch_repos $DO_FETCH || RES=$?
             DO_FETCH=false
+            echo "[I] `date`: === Completed a fetch of all known repositories' contents for recursion analysis" >&2
         fi
         REPO_LIST+=( `QUIET_SKIP=true do_list_repoids | awk '{print $2}' | sort | uniq` )
         echo "Discovered the following currently-known Git URLs for further recursion: ${REPO_LIST[*]}" >&2
