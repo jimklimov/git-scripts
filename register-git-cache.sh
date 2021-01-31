@@ -232,7 +232,7 @@ do_register_repo() {
 
     [ -e .git ] || [ -s HEAD ] || \
         ( echo "[I] `date`: === Initializing bare repository for git references at `pwd` ..." ; \
-          $CI_TIME git init --bare && $CI_TIME git config gc.auto 0 ) || exit $?
+          $CI_TIME git init --bare && $CI_TIME git config gc.auto 0 ) || exit $? # fatal error
 
     $CI_TIME git remote -v | grep -i "$REPO" > /dev/null \
     && echo "SKIP: Repo '$REPO' already registered in `pwd`" \
