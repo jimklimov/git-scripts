@@ -248,10 +248,21 @@ do_register_repo() {
         ( echo "[I] `date`: === Initializing bare repository for git references at `pwd` ..." ; \
           $CI_TIME git init --bare && $CI_TIME git config gc.auto 0 ) || exit $? # fatal error
 
+    # Print entries line by line. Note that the hits above for REGISTERED_NOW
+    # or REGISTERED_EARLIER could only happen in another iteration below this
+    # point, so KNOWN_REPOIDS would be updated there as well.
+    if IFS="${EOLCHAR}" eval 'echo "${KNOWN_REPOIDS[*]}"' | egrep -i '[ '"${TABCHAR}"']'"$REPO"'($|[ '"${TABCHAR}"']'"$REFREPODIR_REPO"'$)' >/dev/null ; then
+        echo "SKIP: Repo '$REPO' already registered in `pwd` per KNOWN_REPOIDS" >&2
+        REGISTERED_EARLIER["${REPO}"]=1
+        REGISTERED_EARLIER["${REPO} `pwd`"]=1
+        return 0
+    fi
+
     local OUT REPOID
     OUT="`$CI_TIME git remote -v | grep -i "$REPO"`" \
     && REPOID="`echo "$OUT" | head -1 | awk '{print $1}'`" \
     && echo "SKIP: Repo '$REPO' already registered as '$REPOID' in `pwd`" \
+    && KNOWN_REPOIDS+=( "$(printf '%s\t%s\t%s\t%s' "$REPOID" "$REPO" "`lc "$REPO"`" "$REFREPODIR_REPO")" ) \
     && REGISTERED_EARLIER["${REPO}"]=1 \
     && REGISTERED_EARLIER["${REPO} `pwd`"]=1 \
     && return 0
