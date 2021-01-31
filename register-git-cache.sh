@@ -512,6 +512,7 @@ do_register_repos_recursive() {
         else
             echo "[I] `date`: === Fetch all known repositories' contents for recursion analysis..." >&2
             do_fetch_repos $DO_FETCH || RES=$?
+            DO_FETCH=false
         fi
         REPO_LIST+=( `QUIET_SKIP=true do_list_repoids | awk '{print $2}' | sort | uniq` )
         echo "Discovered the following currently-known Git URLs for further recursion: ${REPO_LIST[*]}" >&2
@@ -561,7 +562,11 @@ do_register_repos_recursive() {
             else
                 # We need the (recent) contents to look into .gitmodules files later
                 echo "[I] `date`: === Fetch '$REPO' contents for recursion analysis..." >&2
-                do_fetch_repos $DO_FETCH "$REPO" || RES=$?
+                if [ "$DO_FETCH" = false ] ; then
+                    do_fetch_repos true "$REPO" || RES=$?
+                else
+                    do_fetch_repos $DO_FETCH "$REPO" || RES=$?
+                fi
             fi
         done
     fi
