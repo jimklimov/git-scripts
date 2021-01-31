@@ -498,6 +498,11 @@ do_register_repos_recursive() {
             echo "FAILED: No Git URLs found under `pwd`, aborting the recursive inspection" >&2
             return 1
         fi
+        # Prevent recursing into Git URLs we have just confirmed are known
+        # (same as for register-or-check in the args-named repos below)
+        for REPO in "${REPO_LIST[@]}" ; do
+            REGISTERED_RECURSIVELY_NOW["$REPO"]=1
+        done
     else
         if [ -n "$CI_TIME" ]; then
             echo "[D] `date`: Recursing into possible submodules of repo URL(s): $*" >&2
