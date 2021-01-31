@@ -234,14 +234,16 @@ do_register_repo() {
         ( echo "[I] `date`: === Initializing bare repository for git references at `pwd` ..." ; \
           $CI_TIME git init --bare && $CI_TIME git config gc.auto 0 ) || exit $? # fatal error
 
-    $CI_TIME git remote -v | grep -i "$REPO" > /dev/null \
-    && echo "SKIP: Repo '$REPO' already registered in `pwd`" \
+    local OUT REPOID
+    OUT="`$CI_TIME git remote -v | grep -i "$REPO"`" \
+    && REPOID="`echo "$OUT" | head -1 | awk '{print $1}'`" \
+    && echo "SKIP: Repo '$REPO' already registered as '$REPOID' in `pwd`" \
     && REGISTERED_EARLIER["${REPO}"]=1 \
     && REGISTERED_EARLIER["${REPO} `pwd`"]=1 \
     && return 0
 
     sleep 1 # ensure unique ID
-    local REPOID="repo-`date -u +%s`"
+    REPOID="repo-`date -u +%s`"
     $CI_TIME git remote add "$REPOID" "$REPO" \
     && $CI_TIME git remote set-url --push "$REPOID" no_push \
     && echo "[I] `date`: OK: Registered repo '$REPOID' => '$REPO' in `pwd`" \
