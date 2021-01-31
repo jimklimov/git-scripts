@@ -71,6 +71,11 @@ LANG=C
 TZ=UTC
 export LC_ALL LANC TZ
 
+# These chars passed via shell as escape sequences confuse grep/sed/...
+# sometimes, so better pass them "as is":
+TABCHAR="`printf '\t'`"
+EOLCHAR="`printf '\n'`"
+
 # Just prepend $CI_TIME to a command line to optionally profile it:
 case "${CI_TIME-}" in
     time|time_wrapper|*/time) ;;
@@ -193,7 +198,7 @@ cache_list_repoids() {
             echo "[D] `date`: Caching repoid's and locations for all known repo URL(s)" >&2
         fi
         IFSOLD="$IFS"
-        IFS="`printf '\n'`"
+        IFS="${EOLCHAR}"
         # Store tab-separated (multi-token) strings: "REPOID URL URL_LOWERCASED SUBDIRNAME"
         # For items in main REFREPODIR_BASE the SUBDIRNAME is empty, trailing tab optional
         KNOWN_REPOIDS=( $(IFS="$IFSOLD"; ($CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; \
@@ -202,7 +207,7 @@ cache_list_repoids() {
                 ( D="`dirname "$DG"`" && cd "$D" && { $CI_TIME git remote -v || echo "FAILED to 'git remote -v' in '`pwd`'">&2 ; } | sed 's,$,\t'"`basename "$D"`," ) ; \
             done; \
           fi; \
-        ) | sed -e '/(fetch)/!d' -e 's,^\([^ \t]*\)[ \t]*\([^ ]*\)[ \t]*(fetch),\1\t\2\t\L\2,' ) )
+        ) | sed -e '/(fetch)/!d' -e 's,^\([^ '"${TABCHAR}"']*\)[ '"${TABCHAR}"']*\([^ ]*\)[ '"${TABCHAR}"']*(fetch),\1\t\2\t\L\2,' ) )
         # TODO: Make an efficient fix for non-GNU sed (\L\2 for lowercasing \2 is an extension)
         IFS="$IFSOLD"
         if [ -n "$CI_TIME" ]; then
@@ -343,7 +348,7 @@ do_list_subrepos() {
             exit 1
         fi
 
-        do_list_remotes "$@" | while IFS="`printf '\t'`" read HASH GITREF REFREPODIR_REPO REPOURL ; do
+        do_list_remotes "$@" | while IFS="${TABCHAR}" read HASH GITREF REFREPODIR_REPO REPOURL ; do
             echo "===== Will check submodules (if any) under tip hash '$HASH' => '$GITREF' $REFREPODIR_REPO $REPOURL..." >&2
             # After pretty reporting, constrain the list to unique items for inspection
             echo "$HASH $REFREPODIR_REPO"
@@ -391,7 +396,7 @@ do_list_subrepos() {
                     else
                         git show "${HASH}:.gitmodules" 2>/dev/null
                     fi \
-                        | sed -e 's,[ \t\r\n]*,,g' -e '/^url=/!d' -e 's,^url=,,' \
+                        | sed -e 's,[ '"${TABCHAR}"'\r\n]*,,g' -e '/^url=/!d' -e 's,^url=,,' \
                         > "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" \
                         && mv -f "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls.tmp" "${TEMPDIR_BASE}/${HASH}:.gitmodules-urls"
                     # If we did not succeed for whatever reason, no final file should appear
@@ -595,7 +600,7 @@ do_list_repoids() {
     cache_list_repoids
     # Print entries line by line:
     ### for LINE in "${KNOWN_REPOIDS[@]}" ; do echo "$LINE" ; done | \
-    IFS="`printf '\n'`" eval 'echo "${KNOWN_REPOIDS[*]}"' | \
+    IFS="${EOLCHAR}" eval 'echo "${KNOWN_REPOIDS[*]}"' | \
     if [ $# = 0 ]; then cat ; else
         # Maybe `echo "$@" | tr ' ' '|' is even better?
         # This could however fall victim to whitespaces in URLs,
@@ -603,7 +608,7 @@ do_list_repoids() {
         RE="`printf '%s' "$1"; shift; while [ $# -gt 0 ]; do printf '%s' "|${1}"; shift; done`"
         grep -E "$RE"
     fi | \
-    while IFS="`printf '\t'`" read R U U_LC D ; do
+    while IFS="${TABCHAR}" read R U U_LC D ; do
         is_repo_not_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
 
         if [ $# = 0 ]; then
