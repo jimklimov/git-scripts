@@ -95,6 +95,20 @@ else
     DEBUG=false
 fi
 
+# Match handled parameters of do_fetch()
+case "${DO_FETCH-}" in
+    false|-vs|-vp|-v) ;; # Keep the value we might pass as argument or use in conditionals
+    true)
+        if [ -n "${REFREPODIR_MODE-}" ]; then
+            DO_FETCH="-vp" # TODO: handle '-p' for default parallelized safely across different dirs
+        else
+            DO_FETCH="-vs"
+        fi
+        ;;
+    default|"") DO_FETCH="" ;; # Use default non-verbose handling
+    *) DO_FETCH="" ;; # ditto
+esac
+
 # NOTE: Currently all the support happens without extra recursion,
 # so maybe this varname will be dropped.
 if [ -n "${REFREPODIR-}" ]; then
@@ -490,7 +504,7 @@ do_register_repos_recursive() {
             echo "Caller asked to not re-fetch Git URLs already registered - probably they were recently refreshed in a separate call" >&2
         else
             echo "[I] `date`: === Fetch all known repositories' contents for recursion analysis..." >&2
-            do_fetch_repos || RES=$?
+            do_fetch_repos $DO_FETCH || RES=$?
         fi
         REPO_LIST+=( `QUIET_SKIP=true do_list_repoids | awk '{print $2}' | sort | uniq` )
         echo "Discovered the following currently-known Git URLs for further recursion: ${REPO_LIST[*]}" >&2
@@ -540,7 +554,7 @@ do_register_repos_recursive() {
             else
                 # We need the (recent) contents to look into .gitmodules files later
                 echo "[I] `date`: === Fetch '$REPO' contents for recursion analysis..." >&2
-                do_fetch_repos "$REPO" || RES=$?
+                do_fetch_repos $DO_FETCH "$REPO" || RES=$?
             fi
         done
     fi
@@ -715,6 +729,11 @@ do_fetch_repos() {
                 fi
             fi | $FETCHER
             return $?
+            ;;
+        true) ;; # fall through
+        false)
+            echo "SKIP: Fetching disabled by argument or DO_FETCH envvar" >&2
+            return 0
             ;;
     esac
 
@@ -981,8 +1000,9 @@ EOF
             ;;
         clone|checkout|co)
             do_register_repo "$2" \
-            && do_fetch_repos "$2" \
-            || BIG_RES=$?
+            && if [ "$DO_FETCH" != false ]; then
+                do_fetch_repos $DO_FETCH "$2" || BIG_RES=$?
+            fi
             DID_UPDATE=true
             shift
             ;;
@@ -1015,7 +1035,9 @@ EOF
             ;;
         fetch|update|pull|up)
             shift
-            QUIET_SKIP=true do_fetch_repos "$@" || BIG_RES=$?
+            if [ "$DO_FETCH" != false ]; then
+                QUIET_SKIP=true do_fetch_repos $DO_FETCH "$@" || BIG_RES=$?
+            fi
             shift $#
             DID_UPDATE=true
             ;;
