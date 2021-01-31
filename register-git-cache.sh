@@ -191,6 +191,10 @@ is_repo_not_excluded() {
 # we tend to re-request this info - so better not hit the disk if we
 # can. This array is populated from routine below (called e.g. from
 # do_list_repoids() routine) and by registration of new repo URLs.
+# While probably wasteful for smaller operations aiming to only act
+# on a few repos and exit (and so was slated for arguments-dependent
+# optimization in do_list_repoids() routine), this should help with
+# the heavier updates.
 declare -a KNOWN_REPOIDS
 cache_list_repoids() {
     if [ "${#KNOWN_REPOIDS[@]}" -eq 0 ]; then
