@@ -189,14 +189,14 @@ is_repo_not_excluded() {
         case "$REPO" in
             "#"*) continue ;;
             $PAT|$PAT.git)
-                $QUIET_SKIP || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2
+                $QUIET_SKIP || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT(.git)'" >&2
                 KNOWN_EXCLUDED["$REPO"]=1
                 return 1
                 ;;
         esac
         case "$REPO.git" in
             $PAT|$PAT.git)
-                $QUIET_SKIP || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2
+                $QUIET_SKIP || echo "SKIP: Repo '$REPO(.git)' excluded by pattern '$PAT(.git)'" >&2
                 KNOWN_EXCLUDED["$REPO"]=1
                 return 1
                 ;;
