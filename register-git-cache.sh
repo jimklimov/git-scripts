@@ -66,6 +66,11 @@
 # Original development tracked at https://github.com/jimklimov/git-scripts
 #
 
+LC_ALL=C
+LANG=C
+TZ=UTC
+export LC_ALL LANC TZ
+
 # Just prepend $CI_TIME to a command line to optionally profile it:
 case "${CI_TIME-}" in
     time|time_wrapper|*/time) ;;
