@@ -366,10 +366,8 @@ do_list_subrepos() {
     local TS_END=0
     local TS_TEXT=''
 
-    if [ -n "$CI_TIME" ]; then
-        [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
-        echo "[D] `date`: Discovering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
-    fi
+    [ -z "$GDATE" ] || TS_START="`$GDATE -u +%s`"
+    echo "[I] `date`: Discovering submodules (if any) referenced from any tip commit of repo(s): $*" >&2
 
     ( # List all unique branches/tags etc. known in the repo(s) from argument,
       # and from each branch, get a .gitmodules if any and URLs from it:
@@ -464,10 +462,8 @@ do_list_subrepos() {
             echo "[D] `date`: Completed raw discovery of submodules (if any) referenced from any tip commit of repo(s): $*" >&2
         fi
     ) | sort | uniq
-    if [ -n "$CI_TIME" ]; then
-        [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" after $(($TS_END - $TS_START)) whole seconds"; }
-        echo "[D] `date`: Finished discovering and filtering submodules (if any) referenced from any tip commit of repo(s)${TS_TEXT}: $*" >&2
-    fi
+    [ -z "$GDATE" ] || { TS_END="`$GDATE -u +%s`" ; TS_TEXT=" after $(($TS_END - $TS_START)) whole seconds"; }
+    echo "[I] `date`: Finished discovering and filtering submodules (if any) referenced from any tip commit of repo(s)${TS_TEXT}: $*" >&2
     # ...in the end, return all unique Git URLs registered as git submodules
 }
 
