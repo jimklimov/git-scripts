@@ -97,7 +97,7 @@ fi
 
 # Match handled parameters of do_fetch()
 case "${DO_FETCH-}" in
-    false|-vs|-vp|-v|-p) ;; # Keep the value we might pass as argument or use in conditionals
+    false|-vs|-vp|-v|-p|-s) ;; # Keep the value we might pass as argument or use in conditionals
     true)
         if [ -n "${REFREPODIR_MODE-}" ]; then
             DO_FETCH="-p" # We handle '-p' for default parallelized fetching safely across different dirs
@@ -753,7 +753,7 @@ do_fetch_repos() {
             echo "SKIP: Fetching disabled by argument or DO_FETCH envvar" >&2
             return 0
             ;;
-        true) shift; FETCHER='' ;; # fall through
+        true|-s) shift; FETCHER='' ;; # fall through
         -p) shift; FETCHER="-j8" ;; # MAXJOBS instead of 8?
         *) FETCHER='' ;; # no shift, URLs incoming (maybe)
     esac
