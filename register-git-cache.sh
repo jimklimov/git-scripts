@@ -194,6 +194,13 @@ is_repo_not_excluded() {
                 return 1
                 ;;
         esac
+        case "$REPO.git" in
+            $PAT|$PAT.git)
+                $QUIET_SKIP || echo "SKIP: Repo '$REPO' excluded by pattern '$PAT'" >&2
+                KNOWN_EXCLUDED["$REPO"]=1
+                return 1
+                ;;
+        esac
     done < "$EXCEPT_PATTERNS_FILE"
 
     # None of defined exceptions matched this repo
@@ -643,6 +650,7 @@ do_list_repoids() {
         grep -E "$RE"
     fi | \
     while IFS="${TABCHAR}" read R U U_LC D ; do
+        is_repo_not_excluded "$U" || continue # not a fatal error, just a skip (reported there)
         is_repo_not_excluded "$U_LC" || continue # not a fatal error, just a skip (reported there)
 
         if [ $# = 0 ]; then
