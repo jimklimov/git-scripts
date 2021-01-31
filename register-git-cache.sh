@@ -962,6 +962,7 @@ EOF
             ;;
         add-recursive)
             shift
+            cache_list_repoids
             # Note: also fetches contents to dig into submodules,
             # unless DO_FETCH=false is specified
             if [ $# = 0 ]; then
