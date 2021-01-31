@@ -97,7 +97,7 @@ fi
 
 # Match handled parameters of do_fetch()
 case "${DO_FETCH-}" in
-    false|-vs|-vp|-v) ;; # Keep the value we might pass as argument or use in conditionals
+    false|-vs|-vp|-v|-p) ;; # Keep the value we might pass as argument or use in conditionals
     true)
         if [ -n "${REFREPODIR_MODE-}" ]; then
             DO_FETCH="-vp" # TODO: handle '-p' for default parallelized safely across different dirs
@@ -730,11 +730,13 @@ do_fetch_repos() {
             fi | $FETCHER
             return $?
             ;;
-        true) ;; # fall through
         false)
             echo "SKIP: Fetching disabled by argument or DO_FETCH envvar" >&2
             return 0
             ;;
+        true) shift; FETCHER='' ;; # fall through
+        -p) shift; FETCHER="-j8" ;; # MAXJOBS instead of 8?
+        *) FETCHER='' ;; # no shift, URLs incoming (maybe)
     esac
 
     # Non-verbose default mode:
@@ -742,8 +744,12 @@ do_fetch_repos() {
     # Or should we follow up with another fetch (like verbose)?
     if [ -z "${REFREPODIR_MODE-}" ] ; then
         echo "[I] `date`: === (fetcher:default:seq) Processing refrepo dir '`pwd`': $*" >&2
-        $CI_TIME git fetch -f --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
+        $CI_TIME git fetch -f $FETCHER --multiple --tags `do_list_repoids "$@" | awk '{print $1}'`
     else
+        # TODO: Add a '-p' for non-verbose parallel mode that can
+        # stretch across subdirs to run more git's (parallelized
+        # internally to natively cleanly handle single dir contents)
+        # For now we enjoy just the internal parallelization...
         local R U D
         local D_='.'
         local R_=''
@@ -778,9 +784,10 @@ do_fetch_repos() {
                           echo "===== (fetcher:default) SKIP: Git URL list is empty after selection - not re-fetching into '$D_'" >&2
                           exit 0 # just exiting a subprocess here
                       fi
+                      # TODO: Change reporting depending on FETCHER value?
                       echo "[I] `date`: ===== (fetcher:default:par) Processing refrepo dir '$D_': $R_" >&2
                       cd "$D_" || exit
-                      $CI_TIME git fetch -f -j8 --multiple --tags $R_ || \
+                      $CI_TIME git fetch -f $FETCHER --multiple --tags $R_ || \
                       { echo "[I] `date`: ======= (fetcher:default:seq) Retry sequentially refrepo dir '$D_': $R_" >&2 ;
                         $CI_TIME git fetch -f --multiple --tags $R_ ; }
                     ) || RESw=$?
