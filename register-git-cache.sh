@@ -61,6 +61,11 @@
 # it returns a success and not-empty string, that is the dir to (make and)
 # change into for the actual git operations for that one Git URL.
 #
+# Also can be used in Windows with the Linux-like environment provided by
+# e.g. builds of Git for Windows: https://git-scm.com/download/win :
+#   C:> set REFREPODIR_MODE=GIT_SUBMODULES
+#   C:> register-git-cache.sh add-recursive https://github.com/org/repo.git
+#
 # Copyright 2018-2021 (C) Jim Klimov <jimklimov@gmail.com>
 # Shared on the terms of MIT license.
 # Original development tracked at https://github.com/jimklimov/git-scripts
