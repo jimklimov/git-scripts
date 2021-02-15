@@ -2,7 +2,7 @@
 
 ### Rewind commit/author timestamps of N commits back to a
 ### specified offset compared to current values of each commit
-### (C) 2019 by Jim Klimov
+### (C) 2019-2021 by Jim Klimov
 
 set -xv
 [ -n "$BACK" ] || BACK=2
@@ -43,5 +43,7 @@ done
 
 echo ""
 echo ""
+echo "==============================================================================="
 echo "DONE; if you want to 'git reset' to initial state, this was the starting point:"
 echo "$INITLOG"
+echo "==============================================================================="
