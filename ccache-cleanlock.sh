@@ -78,6 +78,8 @@ hostnamefilter_newest() (
     (
         declare -A HOSTNAMES_COUNT
         declare -A HOSTNAMES_LATEST
+        declare -A HOSTNAMES_OLDEST
+        declare -A HOSTNAMES_OLDEST_PID
         OLDEST=-1
         LATEST=-1
         RES=0
@@ -85,12 +87,17 @@ hostnamefilter_newest() (
             HOSTNAMES_COUNT[$B]=$((${HOSTNAMES_COUNT[$B]} + 1))
             if [ -n "${HOSTNAMES_LATEST[$B]}" ] && [ "${HOSTNAMES_LATEST[$B]}" -gt "$T" ] \
             ; then : ; else HOSTNAMES_LATEST[$B]=$T ; fi
+            if [ -n "${HOSTNAMES_OLDEST[$B]}" ] && [ "${HOSTNAMES_OLDEST[$B]}" -lt "$T" ] \
+            ; then : ; else HOSTNAMES_OLDEST[$B]=$T ; HOSTNAMES_OLDEST_PID[$B]=$P; fi
             if [ "$T" -gt "$LATEST" ] ; then LATEST="$T" ; fi
             if [ "$T" -lt "$OLDEST" ] || [ "$OLDEST" = -1 ] ; then OLDEST="$T" ; fi
         done
         if [ "${#HOSTNAMES_COUNT[@]}" -gt 0 ]; then
             for B in $( echo "${!HOSTNAMES_COUNT[@]}" | tr ' ' '\n' | sort ); do
-                printf '%6d\t%s\t%s\t%s\n' "${HOSTNAMES_COUNT[$B]}" "${HOSTNAMES_LATEST[$B]}" "`${GDATE} -u -d '1970-01-01 + '"${HOSTNAMES_LATEST[$B]}"' sec'`" "$B"
+                printf '%6d\t%s\t%s\t%s\t%s\t%s\t%s\n' "${HOSTNAMES_COUNT[$B]}" \
+                    "${HOSTNAMES_LATEST[$B]}" "`${GDATE} -u -d '1970-01-01 + '"${HOSTNAMES_LATEST[$B]}"' sec'`" \
+                    "${HOSTNAMES_OLDEST[$B]}" "`${GDATE} -u -d '1970-01-01 + '"${HOSTNAMES_OLDEST[$B]}"' sec'`" \
+                    "${HOSTNAMES_OLDEST_PID[$B]}" "$B"
             done
             NOW="`${GDATE} -u +%s`"
             printf '\n  NOW:\t%s\t%s\n' "$NOW"  "`${GDATE} -u -d '1970-01-01 + '"$NOW"' sec'`"
@@ -133,7 +140,7 @@ listing_header() {
     echo "Note that such clean up can take a LONG WHILE"
     echo ""
     echo "Looking for existing lock files in $1 subdir levels ..."
-    printf "  COUNT\tNEWEST-TS\tEXPANDED_NEWEST_TIMESTAMP\tCLEANHOST=\n"
+    printf "  COUNT\tNEWEST-TS\tEXPANDED_NEWEST_TIMESTAMP\tOLDEST-TS\tEXPANDED_OLDEST_TIMESTAMP\tOLDEST-PID\tCLEANHOST=\n"
     echo ""
 }
 
