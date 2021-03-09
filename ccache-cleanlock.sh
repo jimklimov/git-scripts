@@ -22,8 +22,9 @@ TZ=UTC
 export TZ LANG LC_ALL
 
 # How long can a decent compilation of one file take? Even on a truck worker?
-# Complain (exit 42) in listing if we see lock files older than this (sec):
-TOO_OLD=120
+# Complain (exit 42) in listing if we see lock files older than this (sec).
+# Also do not remove lock files younger than this, only report them if seen.
+[ -n "$TOO_OLD" ] && [ "$TOO_OLD" -ge 0 ] || TOO_OLD=120
 
 # Hint: for a massive cleanup, can set CLEANHOST=. or another regex to match
 # In worst cases, try: find . -name 'stats.lock*' -type l -exec rm -f '{}' \;
