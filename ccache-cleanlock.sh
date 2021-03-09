@@ -11,7 +11,7 @@
 # a check that they are not referenced by a still-running process, if executed
 # from the builder host.
 #
-# (C) 2015-2020 by Jim Klimov
+# (C) 2015-2021 by Jim Klimov
 #
 
 set -o pipefail
@@ -25,6 +25,8 @@ export TZ LANG LC_ALL
 # Complain (exit 42) in listing if we see lock files older than this (sec):
 TOO_OLD=120
 
+# Hint: for a massive cleanup, can set CLEANHOST=. or another regex to match
+# In worst cases, try: find . -name 'stats.lock*' -type l -exec rm -f '{}' \;
 [ -n "${CHECKPROC-}" ] || CHECKPROC=true
 [ -n "${CLEANHOST-}" ] && CHECKPROC=false && { if [ "${CLEANHOST}" = "`hostname`" ] ; then CHECKPROC=true ; fi; } || CLEANHOST="`hostname`"
 
