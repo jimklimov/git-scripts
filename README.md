@@ -76,6 +76,11 @@ This script is here to allow managing a git repository in the directory it
 resides in as a sort of cache, usable as a reference git repo for faster
 clones e.g. in a CI environment.
 
+NOTE: Development of this script has been separated into
+https://github.com/jimklimov/git-refrepo-scripts
+to better align with related evolution of Jenkins Git Client plugin
+proposed in https://github.com/jenkinsci/git-client-plugin/pull/644
+
 ** Thanks to bits of wisdom at https://stackoverflow.com/a/57133963/4715872
    and https://pcarleton.com/2016/11/10/ssh-proxy/ I now know that if we have
    overloaded our firewall banging SSH repos at `github.com:22` we can also
