@@ -24,7 +24,7 @@ while [ "$PREV" -le "$BACK" ] ; do
 		echo "=== AMENDING:"
 		echo "=== OLD DATE: $DOLD"
 		echo "=== NEW DATE: $DNEW"
-		GIT_COMMITTER_DATE="$DNEW" git commit --amend --no-edit --date "$DNEW"
+		GIT_COMMITTER_DATE="$DNEW" GIT_AUTHOR_DATE="$DNEW" git commit --amend --no-edit --date "$DNEW"
 
 		echo "=== RESULT LOG:"
 		git log -1
