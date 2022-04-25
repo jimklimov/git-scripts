@@ -10,7 +10,7 @@ PREV=1
 [ -n "$COMMIT_USER_NAME" ] || { echo "COMMIT_USER_NAME or proper git config is required" >&2 ; exit 1; }
 [ -n "$COMMIT_USER_EMAIL" ] || COMMIT_USER_EMAIL="`git config user.email || git config --global user.email`"
 [ -n "$COMMIT_USER_EMAIL" ] || { echo "COMMIT_USER_EMAIL or proper git config is required" >&2 ; exit 1; }
-INITLOG="`git log -1"
+INITLOG="`git log -1`"
 
 ANEW="$COMMIT_USER_NAME <$COMMIT_USER_EMAIL>"
 
