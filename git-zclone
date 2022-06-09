@@ -25,7 +25,7 @@
 ### just the fresh repository.
 ### Also note that this did not yet intend to support cloning of bare repos.
 ###
-### Copyright (C) 2013-2020 by Jim Klimov <jim@jimklimov.com>, License: MIT
+### Copyright (C) 2013-2022 by Jim Klimov <jim@jimklimov.com>, License: MIT
 ###     https://github.com/jimklimov/git-scripts
 
 do_git_zfs_clone() {
@@ -113,8 +113,11 @@ case "$FROM" in
 			echo "Required: FROM must exist as a directory" >&2 && return 1
 		[ ! -d "$FROM/.git" ] && \
 			echo "Required: FROM must be a Git repository" >&2 && return 1
-		[ ! -d "$FROM/.zfs/snapshot" ] && \
-			echo "Required: FROM must be a ZFS POSIX dataset" >&2 && return 1
+		[ ! -d "$FROM/.zfs/snapshot" ] && { \
+			echo "Required: FROM must be a ZFS POSIX dataset"
+			echo "To clone from arbitrary local directory, please use URL format, e.g.:"
+			echo "    $0 file://$FROM $*"
+			} >&2 && return 1
 
 		FROMDS="`cd "$FROMPATH" && /bin/df -k . | GREP_OPTIONS= grep / | head -1 | awk '{print $1}'`" || \
 			FROMDS=""
