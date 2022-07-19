@@ -15,10 +15,19 @@ INITLOG="`git log -1`"
 	# Historically: for expression below, sed should not claim
 	#     bad flag in substitute command: '}'
 	# GIT_EDITOR="$GSED -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV}
+	# Later unsuccessfully (BSD sed chokes on stdin
+	# as an editable file) tried:
+	# GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' -i " git rebase -i HEAD~${PREV} && \
 	# Currently a POSIX-portable expression is used,
 	# but on a system with choices we might see some
 	# "very other" implementation so prefer GNU anyway.
 	(command -v gsed) && GSED=gsed || GSED=sed
+}
+[ -n "$GAWK" ] || {
+	# Loop to also find nawk, oawk, ...
+	for A in gawk nawk oawk awk ; do
+		(command -v "$A") && GAWK="$A" && break
+	done
 }
 [ -n "$GDATE" ] || {
 	# Should support "date -d ..."
@@ -39,7 +48,7 @@ INITLOG="`git log -1`"
 # ago, one by one for different PREV values); watch out for
 # merge-commits though!
 while [ "$PREV" -le "$BACK" ] ; do
-	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' -i " git rebase -i HEAD~${PREV} && \
+	GIT_EDITOR="$GAWK '!r && /^pick / {sub(/^pick /,\"\nedit \"); r=1} 1' " git rebase -i HEAD~${PREV} && \
 	while sleep 0.1 ; do
 		echo "===== START COMMIT PARSE:"
 		DOLD="`git show -s --format='%ci'`"
