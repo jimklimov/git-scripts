@@ -2,7 +2,7 @@
 
 ### Rewind commit/author timestamps of N commits back to a
 ### specified offset compared to current values of each commit
-### (C) 2019-2021 by Jim Klimov
+### (C) 2019-2022 by Jim Klimov
 
 set -xv
 [ -n "$BACK" ] || BACK=2
@@ -10,16 +10,26 @@ PREV=1
 [ -n "$OFFSET" ] || OFFSET="- 3 days"
 INITLOG="`git log -1`"
 
+[ -n "$GSED" ] || {
+    # For expression below, sed should not claim
+    #     bad flag in substitute command: '}'
+    (command -v gsed) && GSED=gsed || GSED=sed
+}
+[ -n "$GDATE" ] || {
+    # Should support "date -d ..."
+    (command -v gdate) && GDATE=gdate || GDATE=date
+}
+
 # Note that we must rewrite history starting from the newest
 # commit, tracking back to the oldest, otherwise the edited
 # timestamps tend to end up broken (reset to "today + offset").
 while [ "$PREV" -le "$BACK" ] ; do
-	GIT_EDITOR="sed -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV} && \
+	GIT_EDITOR="$GSED -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV} && \
 	while sleep 0.1 ; do
 		echo "===== START COMMIT PARSE:"
 		DOLD="`git show -s --format='%ci'`"
 		DDDD="$DOLD $OFFSET"
-		DNEW="`date -d "$DDDD"`"
+		DNEW="`$GDATE -d "$DDDD"`"
 
 		echo "=== AMENDING:"
 		echo "=== OLD DATE: $DOLD"
