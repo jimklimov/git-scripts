@@ -28,7 +28,7 @@ echo "Going back BACK=$BACK commits to change the commit authors to '$ANEW' ..."
 # commit, tracking back to the oldest, otherwise the edited
 # timestamps tend to end up broken (reset to "today + offset").
 while [ "$PREV" -le "$BACK" ] ; do
-	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' -i " git rebase -i HEAD~${PREV} && \
+	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' " git rebase -i HEAD~${PREV} && \
 	while sleep 0.1 ; do
 		echo "===== START COMMIT PARSE:"
 		AOLD="`git show -s --format='%an <%ae>'`"
