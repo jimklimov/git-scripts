@@ -35,7 +35,7 @@ echo "Going back BACK=$BACK commits to change the commit authors to '$ANEW' ..."
 # ago, one by one for different PREV values); watch out for
 # merge-commits though!
 while [ "$PREV" -le "$BACK" ] ; do
-	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' " git rebase -i HEAD~${PREV} && \
+	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' -i " git rebase -i HEAD~${PREV} && \
 	while sleep 0.1 ; do
 		echo "===== START COMMIT PARSE:"
 		AOLD="`git show -s --format='%an <%ae>'`"
