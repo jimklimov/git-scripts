@@ -19,6 +19,7 @@ INITLOG="`git log -1`"
 	# Currently a POSIX-portable expression is used,
 	# but on a system with choices we might see some
 	# "very other" implementation so prefer GNU anyway.
+	(command -v gsed) && GSED=gsed || GSED=sed
 }
 
 ANEW="$COMMIT_USER_NAME <$COMMIT_USER_EMAIL>"
@@ -35,7 +36,7 @@ echo "Going back BACK=$BACK commits to change the commit authors to '$ANEW' ..."
 # ago, one by one for different PREV values); watch out for
 # merge-commits though!
 while [ "$PREV" -le "$BACK" ] ; do
-	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' -i " git rebase -i HEAD~${PREV} && \
+	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' < \$1 > \$1.tmp && mv \$1.tmp \$1 ; : " git rebase -i HEAD~${PREV} && \
 	while sleep 0.1 ; do
 		echo "===== START COMMIT PARSE:"
 		AOLD="`git show -s --format='%an <%ae>'`"
