@@ -12,9 +12,13 @@ PREV=1
 [ -n "$COMMIT_USER_EMAIL" ] || { echo "COMMIT_USER_EMAIL or proper git config is required" >&2 ; exit 1; }
 INITLOG="`git log -1`"
 
-[ -n "$GAWK" ] || {
-	# Loop to also find nawk, oawk, ... ?
-	(command -v gawk) && GAWK=gawk || GAWK=awk
+[ -n "$GSED" ] || {
+	# Historically: for expression below, sed should not claim
+	#     bad flag in substitute command: '}'
+	# GIT_EDITOR="$GSED -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV}
+	# Currently a POSIX-portable expression is used,
+	# but on a system with choices we might see some
+	# "very other" implementation so prefer GNU anyway.
 }
 
 ANEW="$COMMIT_USER_NAME <$COMMIT_USER_EMAIL>"
@@ -31,7 +35,7 @@ echo "Going back BACK=$BACK commits to change the commit authors to '$ANEW' ..."
 # ago, one by one for different PREV values); watch out for
 # merge-commits though!
 while [ "$PREV" -le "$BACK" ] ; do
-	GIT_EDITOR="$GAWK '!r && /^pick / {sub(/^pick /,\"\nedit \"); r=1} 1' " git rebase -i HEAD~${PREV} && \
+	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' -i " git rebase -i HEAD~${PREV} && \
 	while sleep 0.1 ; do
 		echo "===== START COMMIT PARSE:"
 		AOLD="`git show -s --format='%an <%ae>'`"
