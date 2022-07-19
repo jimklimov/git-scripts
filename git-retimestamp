@@ -12,21 +12,32 @@ PREV=1
 INITLOG="`git log -1`"
 
 [ -n "$GSED" ] || {
-    # For expression below, sed should not claim
-    #     bad flag in substitute command: '}'
-    (command -v gsed) && GSED=gsed || GSED=sed
+	# Historically: for expression below, sed should not claim
+	#     bad flag in substitute command: '}'
+	# GIT_EDITOR="$GSED -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV}
+	# Currently a POSIX-portable expression is used,
+	# but on a system with choices we might see some
+	# "very other" implementation so prefer GNU anyway.
+	(command -v gsed) && GSED=gsed || GSED=sed
 }
 [ -n "$GDATE" ] || {
-    # Should support "date -d ..."
-    (command -v gdate) && GDATE=gdate || GDATE=date
-    # Not covered here yet as a method (just a fallback below),
-    # but programs for BSD would use multi-token syntax like:
-    #   date -f '%Y-%m-%d %H:%M:%S %z' -j -v '-3d' -v '-9H' "$DOLD"
+	# Should support "date -d ..."
+	(command -v gdate) && GDATE=gdate || GDATE=date
+	# Not covered here yet as a method (just a fallback below),
+	# but programs for BSD would use multi-token syntax like:
+	#   date -f '%Y-%m-%d %H:%M:%S %z' -j -v '-3d' -v '-9H' "$DOLD"
+	# There are many different and incompatible implementations
+	# and it is hard to fall-back and cater to each of them.
+	# If the current system has a GNU date, we want to use it.
 }
 
 # Note that we must rewrite history starting from the newest
 # commit, tracking back to the oldest, otherwise the edited
 # timestamps tend to end up broken (reset to "today + offset").
+# With the interactive rebase, the first line is the oldest
+# commit of those selected (so fixing up the one PREV commits
+# ago, one by one for different PREV values); watch out for
+# merge-commits though!
 while [ "$PREV" -le "$BACK" ] ; do
 	GIT_EDITOR="$GSED -e '/^pick /{s/^pick /edit /;:p' -e 'n;bp' -e '}' " git rebase -i HEAD~${PREV} && \
 	while sleep 0.1 ; do
