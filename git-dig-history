@@ -23,6 +23,11 @@ EOF
 [ -n "${LOGDIR-}" ] || LOGDIR="`pwd`/.."
 [ -n "${LOGTAG-}" ] || LOGTAG="$(basename `pwd`)"
 
+if [ -z "${GGREP-}" ] ; then
+	# TODO: check if GNU Grep extensions (-A<NUM>) are supported?
+	(command -v ggrep 2>/dev/null >/dev/null) && GGREP=ggrep || GGREP=grep
+fi
+
 find_commits_contains() {
     ### This lists which "$COMMITID:$PATHNAME:$LINETEXT" contain the PATTERN in the LINETEXT
     ### Note that this lists all commits whose checked-out workspace would have the pattern
@@ -61,7 +66,7 @@ find_commits_intro() {
     echo "LIST OF COMMITS THAT INTRODUCE PATTERN (cached in ${COMMIT_INTRODUCES_FILE}.tmp) :"
     cat "${COMMIT_INTRODUCES_FILE}".tmp | \
     egrep '^([\^]|.*32m\+)' | \
-    ggrep -A1 '32m\+' | \
+    $GGREP -A1 '32m\+' | \
     grep '^\^' \
     | tee "${COMMIT_INTRODUCES_FILE}"
 }
@@ -78,7 +83,7 @@ find_commits_drop() {
     echo "LIST OF COMMITS THAT DROP THE PATTERN (cached in ${COMMIT_DROPS_FILE}.tmp) :"
     cat "${COMMIT_DROPS_FILE}".tmp | \
     egrep '^([\^]|.*31m\-)' | \
-    ggrep -A1 '31m\-' | \
+    $GGREP -A1 '31m\-' | \
     grep '^\^' \
     | tee "${COMMIT_DROPS_FILE}"
 }
