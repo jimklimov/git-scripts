@@ -10,6 +10,7 @@ PREV=1
 [ -n "$COMMIT_USER_NAME" ] || { echo "COMMIT_USER_NAME or proper git config is required" >&2 ; exit 1; }
 [ -n "$COMMIT_USER_EMAIL" ] || COMMIT_USER_EMAIL="`git config user.email || git config --global user.email`"
 [ -n "$COMMIT_USER_EMAIL" ] || { echo "COMMIT_USER_EMAIL or proper git config is required" >&2 ; exit 1; }
+[ "$SIGNOFF" = true ] || SIGNOFF=false
 INITLOG="`git log -1`"
 
 [ -n "$GSED" ] || {
@@ -56,6 +57,21 @@ while [ "$PREV" -le "$BACK" ] ; do
 		if $DO_AMEND ; then
 			echo "=== NEW USER: $ANEW"
 			git commit --amend --no-edit --author "$ANEW"
+
+
+			if $SIGNOFF ; then
+				if git log -1 | grep "Signed-off-by: $ANEW" > /dev/null ; then
+					echo "===== ALREADY Signed-off-by: $ANEW" # no-op
+				else
+					echo "===== NEW SIGNATURE: Signed-off-by: $ANEW"
+					if [ -n "$COMMIT_USER_FILTER" ]; then (
+						GIT_EDITOR="$GSED -e '/^Signed-off-by: '"$COMMIT_USER_FILTER"'\$/d' < \$1 > \$1.tmp && mv \$1.tmp \$1 ; : " \
+						git commit --amend --author "$ANEW" -s
+					) ; else
+						git commit --amend --no-edit --author "$ANEW" -s
+					fi
+				fi
+			fi
 		fi
 
 		echo "=== RESULT LOG:"

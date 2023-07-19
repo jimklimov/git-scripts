@@ -58,7 +58,9 @@ commits in your branch, changing to `$COMMIT_USER_NAME <$COMMIT_USER_EMAIL>`
 and optionally filtering to only change commits originally owned by matches
 to regex `$COMMIT_USER_FILTER`. Intended to fix up code initially developed
 and tested "in vivo" on final deployments without proper git setup attributing
-changes to certain persons.
+changes to certain persons. With a `SIGNOFF=true` can also be used to add
+(or replace in case of filter) a `Signed-off-by: User Name <email@domain>`
+to the commit message (for stating the DCO compliance).
 
 # Other related automation scripts
 
