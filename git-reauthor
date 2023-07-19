@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ### Change commit user (author) name and email for the last BACK commits
-### (C) 2019-2022 by Jim Klimov
+### (C) 2019-2023 by Jim Klimov
 
 #set -xv
 [ -n "$BACK" ] || BACK=2
@@ -43,16 +43,20 @@ while [ "$PREV" -le "$BACK" ] ; do
 
 		echo "=== AMENDING:"
 		echo "=== OLD USER: $AOLD"
+		DO_AMEND=true
 		if [ -n "$COMMIT_USER_FILTER" ]; then
 			if expr "$AOLD" : ".*$COMMIT_USER_FILTER.*" > /dev/null ; then
 				echo "===== OLD USER matches the regex '$COMMIT_USER_FILTER'"
 			else
 				echo "===== OLD USER does not match the regex '$COMMIT_USER_FILTER', skipped"
+				DO_AMEND=false
 			fi
 		fi
 
-		echo "=== NEW USER: $ANEW"
-		git commit --amend --no-edit --author "$ANEW"
+		if $DO_AMEND ; then
+			echo "=== NEW USER: $ANEW"
+			git commit --amend --no-edit --author "$ANEW"
+		fi
 
 		echo "=== RESULT LOG:"
 		git log -1
