@@ -2,16 +2,18 @@
 
 ### Rewind commit/author timestamps of N commits back to a
 ### specified offset compared to current values of each commit
-### (C) 2019-2022 by Jim Klimov
+### (C) 2019-2024 by Jim Klimov
 
-set -xv
-[ -n "$BACK" ] || BACK=2
+set -u
+set -e
+[ -z "${DEBUG-}" ] || set -xv
+[ -n "${BACK-}" ] || BACK=2
 PREV=1
 # For BSD could be OFFSET="-v-3d -v-9H'
-[ -n "$OFFSET" ] || OFFSET="- 3 days"
+[ -n "${OFFSET-}" ] || OFFSET="- 3 days"
 INITLOG="`git log -1`"
 
-[ -n "$GSED" ] || {
+[ -n "${GSED-}" ] || {
 	# Historically: for expression below, sed should not claim
 	#     bad flag in substitute command: '}'
 	# GIT_EDITOR="$GSED -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV}
@@ -20,7 +22,7 @@ INITLOG="`git log -1`"
 	# "very other" implementation so prefer GNU anyway.
 	(command -v gsed) && GSED=gsed || GSED=sed
 }
-[ -n "$GDATE" ] || {
+[ -n "${GDATE-}" ] || {
 	# Should support "date -d ..."
 	(command -v gdate) && GDATE=gdate || GDATE=date
 	# Not covered here yet as a method (just a fallback below),
