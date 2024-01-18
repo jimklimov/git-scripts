@@ -1,19 +1,21 @@
 #!/bin/sh
 
 ### Change commit user (author) name and email for the last BACK commits
-### (C) 2019-2023 by Jim Klimov
+### (C) 2019-2024 by Jim Klimov
 
-#set -xv
-[ -n "$BACK" ] || BACK=2
+set -u
+set -e
+[ -n "${DEBUG-}" ] || set -xv
+[ -n "${BACK-}" ] || BACK=2
 PREV=1
-[ -n "$COMMIT_USER_NAME" ] || COMMIT_USER_NAME="`git config user.name || git config --global user.name`"
-[ -n "$COMMIT_USER_NAME" ] || { echo "COMMIT_USER_NAME or proper git config is required" >&2 ; exit 1; }
-[ -n "$COMMIT_USER_EMAIL" ] || COMMIT_USER_EMAIL="`git config user.email || git config --global user.email`"
-[ -n "$COMMIT_USER_EMAIL" ] || { echo "COMMIT_USER_EMAIL or proper git config is required" >&2 ; exit 1; }
-[ "$SIGNOFF" = true ] || SIGNOFF=false
+[ -n "${COMMIT_USER_NAME-}" ] || COMMIT_USER_NAME="`git config user.name || git config --global user.name`"
+[ -n "${COMMIT_USER_NAME-}" ] || { echo "COMMIT_USER_NAME or proper git config is required" >&2 ; exit 1; }
+[ -n "${COMMIT_USER_EMAIL-}" ] || COMMIT_USER_EMAIL="`git config user.email || git config --global user.email`"
+[ -n "${COMMIT_USER_EMAIL-}" ] || { echo "COMMIT_USER_EMAIL or proper git config is required" >&2 ; exit 1; }
+[ "${SIGNOFF-}" = true ] || SIGNOFF=false
 INITLOG="`git log -1`"
 
-[ -n "$GSED" ] || {
+[ -n "${GSED-}" ] || {
 	# Historically: for expression below, sed should not claim
 	#     bad flag in substitute command: '}'
 	# GIT_EDITOR="$GSED -e '0,/^pick /{s/^pick /edit /}' -i " git rebase -i HEAD~${PREV}
@@ -26,7 +28,7 @@ INITLOG="`git log -1`"
 ANEW="$COMMIT_USER_NAME <$COMMIT_USER_EMAIL>"
 
 echo "Going back BACK=$BACK commits to change the commit authors to '$ANEW' ..."
-[ -n "$COMMIT_USER_FILTER" ] && { echo "...matching regex '.*$COMMIT_USER_FILTER.*'" ; } \
+[ -n "${COMMIT_USER_FILTER-}" ] && { echo "...matching regex '.*$COMMIT_USER_FILTER.*'" ; } \
 || { echo "You do not have COMMIT_USER_FILTER set, waiting a bit in case you need that" >&2 ; sleep 5; }
 
 # Note that we must rewrite history starting from the newest
@@ -57,7 +59,6 @@ while [ "$PREV" -le "$BACK" ] ; do
 		if $DO_AMEND ; then
 			echo "=== NEW USER: $ANEW"
 			git commit --amend --no-edit --author "$ANEW"
-
 
 			if $SIGNOFF ; then
 				if git log -1 | grep "Signed-off-by: $ANEW" > /dev/null ; then
