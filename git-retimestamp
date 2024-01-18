@@ -47,7 +47,7 @@ while [ "$PREV" -le "$BACK" ] ; do
 		DOLD="`git show -s --format='%ci'`"
 		DNEW="`$GDATE -d "$DOLD $OFFSET"`" && [ -n "$DNEW" ] \
 		|| { DNEW="`$GDATE -f '%Y-%m-%d %H:%M:%S %z' $OFFSET -j "$DOLD"`" && [ -n "$DNEW" ] ; } \
-		|| { echo "FATAL: No compatible 'date' program was found for the OFFSET value (and other args) used" >&2 ; exit 1 ; }
+		|| { echo "FATAL: No compatible 'date' program was found for the OFFSET value (and other args) used" >&2 ; git rebase --abort; exit 1 ; }
 
 		echo "=== AMENDING:"
 		echo "=== OLD DATE: $DOLD"
